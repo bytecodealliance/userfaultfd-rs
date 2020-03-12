@@ -1,0 +1,15 @@
+[package]
+name = "userfaultfd-sys"
+version = "0.1.0"
+authors = ["Adam C. Foltzer <acfoltzer@fastly.com>"]
+edition = "2018"
+
+build = "build.rs"
+
+[dependencies]
+cfg-if = "0.1"
+
+[build-dependencies]
+bindgen = "0.47"
+cc = "1.0"
+linux-version = { path = "../linux-version" }

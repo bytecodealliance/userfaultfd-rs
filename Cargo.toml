@@ -1,0 +1,12 @@
+[package]
+name = "userfaultfd"
+version = "0.1.0"
+authors = ["Adam C. Foltzer <acfoltzer@fastly.com>"]
+edition = "2018"
+
+[dependencies]
+bitflags = "1.0"
+failure = "0.1"
+libc = "=0.2.59"
+nix = "0.13"
+userfaultfd-sys = { path = "userfaultfd-sys" }
