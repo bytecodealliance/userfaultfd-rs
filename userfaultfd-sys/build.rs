@@ -62,7 +62,7 @@ impl ParseCallbacks for Callbacks {
             ("UFFD_PAGEFAULT_FLAG_", IntKind::U64),
             ("UFFD_FEATURE_", IntKind::U64),
         ]
-        .into_iter()
+        .iter()
         {
             if name.starts_with(prefix) {
                 return Some(*kind);
