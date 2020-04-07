@@ -3,10 +3,14 @@ name = "userfaultfd"
 version = "0.1.0"
 authors = ["Adam C. Foltzer <acfoltzer@fastly.com>"]
 edition = "2018"
+license = "MIT OR Apache-2.0"
+description = "Rust bindings for the Linux userfaultfd functionality"
+repository = "https://github.com/fastly/userfaultfd-rs"
+readme = "README.md"
 
 [dependencies]
 bitflags = "1.0"
 libc = "0.2.65"
 nix = "0.13"
 thiserror = "1.0.4"
-userfaultfd-sys = { path = "userfaultfd-sys" }
+userfaultfd-sys = { version = "=0.1.0", path = "userfaultfd-sys" }

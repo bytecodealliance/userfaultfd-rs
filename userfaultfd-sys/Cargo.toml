@@ -3,6 +3,7 @@ name = "userfaultfd-sys"
 version = "0.1.0"
 authors = ["Adam C. Foltzer <acfoltzer@fastly.com>"]
 edition = "2018"
+license = "MIT OR Apache-2.0"
 
 build = "build.rs"
 
@@ -12,4 +13,4 @@ cfg-if = "0.1"
 [build-dependencies]
 bindgen = "0.51"
 cc = "1.0"
-linux-version = { path = "../linux-version" }
+linux-version = { version = "=0.1.0", path = "../linux-version" }
