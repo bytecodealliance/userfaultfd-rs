@@ -9,7 +9,7 @@ description = "Package for detecting the version of the linux kernel a program i
 build = "build.rs"
 
 [dependencies]
-nix = "0.13"
+nix = "0.17"
 semver = "0.9"
 
 [build-dependencies]

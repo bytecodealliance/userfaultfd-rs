@@ -10,9 +10,9 @@ pub unsafe fn userfaultfd(flags: c_int) -> c_int {
     }
 }
 
-ioctl_readwrite!(api, UFFDIO, _UFFDIO_API, uffdio_api);
-ioctl_readwrite!(register, UFFDIO, _UFFDIO_REGISTER, uffdio_register);
-ioctl_read!(unregister, UFFDIO, _UFFDIO_UNREGISTER, uffdio_range);
-ioctl_read!(wake, UFFDIO, _UFFDIO_WAKE, uffdio_range);
-ioctl_readwrite!(copy, UFFDIO, _UFFDIO_COPY, uffdio_copy);
-ioctl_readwrite!(zeropage, UFFDIO, _UFFDIO_ZEROPAGE, uffdio_zeropage);
+nix::ioctl_readwrite!(api, UFFDIO, _UFFDIO_API, uffdio_api);
+nix::ioctl_readwrite!(register, UFFDIO, _UFFDIO_REGISTER, uffdio_register);
+nix::ioctl_read!(unregister, UFFDIO, _UFFDIO_UNREGISTER, uffdio_range);
+nix::ioctl_read!(wake, UFFDIO, _UFFDIO_WAKE, uffdio_range);
+nix::ioctl_readwrite!(copy, UFFDIO, _UFFDIO_COPY, uffdio_copy);
+nix::ioctl_readwrite!(zeropage, UFFDIO, _UFFDIO_ZEROPAGE, uffdio_zeropage);

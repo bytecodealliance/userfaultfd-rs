@@ -1,6 +1,6 @@
 //! Port of the example from the `userfaultfd` manpage.
 use libc::{self, c_void};
-use nix::poll::{poll, EventFlags, PollFd};
+use nix::poll::{poll, PollFd, PollFlags};
 use nix::sys::mman::{mmap, MapFlags, ProtFlags};
 use nix::unistd::{sysconf, SysconfVar};
 use std::env;
@@ -31,7 +31,7 @@ fn fault_handler_thread(uffd: Uffd) {
     loop {
         // See what poll() tells us about the userfaultfd
 
-        let pollfd = PollFd::new(uffd.as_raw_fd(), EventFlags::POLLIN);
+        let pollfd = PollFd::new(uffd.as_raw_fd(), PollFlags::POLLIN);
         let nready = poll(&mut [pollfd], -1).expect("poll");
 
         println!("\nfault_handler_thread():");
@@ -39,8 +39,8 @@ fn fault_handler_thread(uffd: Uffd) {
         println!(
             "    poll() returns: nready = {}; POLLIN = {}; POLLERR = {}",
             nready,
-            revents.contains(EventFlags::POLLIN),
-            revents.contains(EventFlags::POLLERR),
+            revents.contains(PollFlags::POLLIN),
+            revents.contains(PollFlags::POLLERR),
         );
 
         // Read an event from the userfaultfd
