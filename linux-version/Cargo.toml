@@ -1,6 +1,6 @@
 [package]
 name = "linux-version"
-version = "0.1.0"
+version = "0.1.1-dev"
 authors = ["Adam C. Foltzer <acfoltzer@fastly.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -13,4 +13,4 @@ nix = "0.13"
 semver = "0.9"
 
 [build-dependencies]
-bindgen = "0.51"
+bindgen = { version = "0.51", default-features = false }

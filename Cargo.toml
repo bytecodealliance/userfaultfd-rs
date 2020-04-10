@@ -1,6 +1,6 @@
 [package]
 name = "userfaultfd"
-version = "0.2.0-dev"
+version = "0.1.1-dev"
 authors = ["Adam C. Foltzer <acfoltzer@fastly.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -13,4 +13,4 @@ bitflags = "1.0"
 libc = "0.2.65"
 nix = "0.13"
 thiserror = "1.0.4"
-userfaultfd-sys = { version = "=0.2.0-dev", path = "userfaultfd-sys" }
+userfaultfd-sys = { path = "userfaultfd-sys", version = "0.1.1-dev" }

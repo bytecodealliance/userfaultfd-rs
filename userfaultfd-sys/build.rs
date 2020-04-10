@@ -1,14 +1,11 @@
 use bindgen;
 use bindgen::callbacks::{IntKind, ParseCallbacks};
 use cc;
-use linux_version::{linux_headers_version, Version};
 use std::env;
 use std::path::PathBuf;
 
 fn main() {
     generate_bindings();
-
-    configure_version();
 
     cc::Build::new()
         .file("src/consts.c")
@@ -32,19 +29,6 @@ fn generate_bindings() {
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("binding file couldn't be written");
-}
-
-fn configure_version() {
-    let version = linux_headers_version();
-    if version < Version::new(4, 3, 0) {
-        panic!("userfaultfd only supported on Linux 4.3 or newer");
-    } else if version >= Version::new(4, 14, 0) {
-        println!("cargo:rustc-cfg=linux4_14");
-    } else if version >= Version::new(4, 11, 0) {
-        println!("cargo:rustc-cfg=linux4_11");
-    } else if version >= Version::new(4, 3, 0) {
-        panic!("this library only supports userfaultfd for Linux 4.11 or newer");
-    }
 }
 
 // all this stuff with callbacks is to give the integer constants the right types
