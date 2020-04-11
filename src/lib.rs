@@ -7,10 +7,6 @@
 //! [`ioctl_userfaultfd(2)`](http://man7.org/linux/man-pages/man2/ioctl_userfaultfd.2.html) for more
 //! details.
 
-// TODO: convert this to 2018-style import once `nix` exports its macros cleanly
-#[macro_use]
-extern crate nix;
-
 mod builder;
 mod error;
 mod event;

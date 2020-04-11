@@ -1,6 +1,6 @@
 [package]
 name = "linux-version"
-version = "0.1.0"
+version = "0.1.2-dev"
 authors = ["Adam C. Foltzer <acfoltzer@fastly.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -9,8 +9,8 @@ description = "Package for detecting the version of the linux kernel a program i
 build = "build.rs"
 
 [dependencies]
-nix = "0.13"
+nix = "0.17"
 semver = "0.9"
 
 [build-dependencies]
-bindgen = "0.51"
+bindgen = { version = "0.51", default-features = false }
