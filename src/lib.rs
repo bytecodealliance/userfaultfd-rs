@@ -14,7 +14,7 @@ mod raw;
 
 pub use crate::builder::{FeatureFlags, UffdBuilder};
 pub use crate::error::{Error, Result};
-pub use crate::event::Event;
+pub use crate::event::{Event, ReadWrite};
 
 use bitflags::bitflags;
 use libc::{self, c_void};
