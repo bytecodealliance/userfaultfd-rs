@@ -1,5 +1,9 @@
 ### Unreleased
 
+### 0.3.0 (2021-02-03)
+
+- Update `bindgen` dependency of `userfaultfd-sys` to `0.57`. Thank you @jgowans
+
 ### 0.2.1 (2020-11-20)
 
 - Make `ReadWrite` public. Thank you @electroCutie
