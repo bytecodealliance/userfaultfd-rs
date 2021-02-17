@@ -1,5 +1,10 @@
 ### Unreleased
 
+### 0.3.1 (2021-02-17)
+
+- Added support for the `UFFD_FEATURE_THREAD_ID` flag when compiled with the `linux4_14` Cargo
+  feature.
+
 ### 0.3.0 (2021-02-03)
 
 - Update `bindgen` dependency of `userfaultfd-sys` to `0.57`. Thank you @jgowans

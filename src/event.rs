@@ -2,6 +2,8 @@ use crate::error::{Error, Result};
 use crate::raw;
 use crate::Uffd;
 use libc::c_void;
+#[cfg(linux4_14)]
+use nix::unistd::Pid;
 use std::os::unix::io::{FromRawFd, RawFd};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -19,6 +21,15 @@ pub enum Event {
         rw: ReadWrite,
         /// The address that triggered the fault.
         addr: *mut c_void,
+        /// The thread that triggered the fault, if [`FeatureFlags::THREAD_ID`] is enabled.
+        ///
+        /// If the thread ID feature is not enabled, the value of this field is undefined. It would
+        /// not be undefined behavior to use it, strictly speaking, but the [`Pid`] will not
+        /// necessarily point to a real thread.
+        ///
+        /// This requires this crate to be compiled with the `linux4_14` feature.
+        #[cfg(linux4_14)]
+        thread_id: Pid,
     },
     /// Generated when the faulting process invokes `fork(2)` (or `clone(2)` without the `CLONE_VM`
     /// flag).
@@ -63,9 +74,13 @@ impl Event {
                 } else {
                     ReadWrite::Write
                 };
+                #[cfg(linux4_14)]
+                let thread_id = Pid::from_raw(unsafe { pagefault.feat.ptid });
                 Ok(Event::Pagefault {
                     rw,
                     addr: pagefault.address as *mut c_void,
+                    #[cfg(linux4_14)]
+                    thread_id,
                 })
             }
             raw::UFFD_EVENT_FORK => {
