@@ -1,6 +1,6 @@
 use crate::IoctlFlags;
-use thiserror::Error;
 use nix::errno::Errno;
+use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
