@@ -23,8 +23,19 @@ use nix::unistd::read;
 use std::mem;
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
-/// The size of each raw uffd event read from the file descriptor.
-pub const UFFD_EVENT_SIZE: usize = mem::size_of::<raw::uffd_msg>();
+/// Represents an opaque buffer where userfaultfd events are stored.
+///
+/// This is used in conjunction with [`Uffd::read_events`].
+pub struct EventBuffer(Vec<raw::uffd_msg>);
+
+impl EventBuffer {
+    /// Creates a new buffer for `size` number of events.
+    ///
+    /// [`Uffd::read_events`] will read up to this many events at a time.
+    pub fn new(size: usize) -> Self {
+        Self(vec![unsafe { mem::zeroed() }; size])
+    }
+}
 
 /// The userfaultfd object.
 ///
@@ -199,7 +210,8 @@ impl Uffd {
     /// # Examples
     ///
     /// ```rust
-    /// fn read_event(uffd: &userfaultfd::Uffd) -> userfaultfd::Result<()> {
+    /// # use userfaultfd::{Uffd, Result};
+    /// fn read_event(uffd: &Uffd) -> Result<()> {
     ///     // Read a single event
     ///     match uffd.read_event()? {
     ///         Some(e) => {
@@ -213,16 +225,14 @@ impl Uffd {
     /// }
     /// ```
     pub fn read_event(&self) -> Result<Option<Event>> {
-        let mut buf = [0; UFFD_EVENT_SIZE];
-        let mut iter = self.read_events(&mut buf)?;
+        let mut buf = [unsafe { std::mem::zeroed() }; 1];
+        let mut iter = self.read(&mut buf)?;
         let event = iter.next().transpose()?;
         assert!(iter.next().is_none());
         Ok(event)
     }
 
-    /// Read multiple events from the userfaultfd object using the given buffer.
-    ///
-    /// The buffer size must be a non-zero multiple of `UFFD_EVENT_SIZE`.
+    /// Read multiple events from the userfaultfd object using the given event buffer.
     ///
     /// If the `Uffd` object was created with `non_blocking` set to `false`, this will block until
     /// an event is successfully read or an error is returned.
@@ -233,9 +243,10 @@ impl Uffd {
     /// # Examples
     ///
     /// ```rust
-    /// fn read_events(uffd: &userfaultfd::Uffd) -> userfaultfd::Result<()> {
+    /// # use userfaultfd::{Uffd, EventBuffer};
+    /// fn read_events(uffd: &Uffd) -> userfaultfd::Result<()> {
     ///     // Read up to 100 events at a time
-    ///     let mut buf = [0; 100 * userfaultfd::UFFD_EVENT_SIZE];
+    ///     let mut buf = EventBuffer::new(100);
     ///     for event in uffd.read_events(&mut buf)? {
     ///         let event = event?;
     ///         // Do something with the event...
@@ -245,34 +256,42 @@ impl Uffd {
     /// ```
     pub fn read_events<'a>(
         &self,
-        buf: &'a mut [u8],
+        buf: &'a mut EventBuffer,
     ) -> Result<impl Iterator<Item = Result<Event>> + 'a> {
-        if buf.is_empty() || (buf.len() % UFFD_EVENT_SIZE) != 0 {
-            return Err(Error::SystemError(Errno::EINVAL.into()));
-        }
+        self.read(&mut buf.0)
+    }
 
-        let nread = match read(self.as_raw_fd(), buf) {
+    fn read<'a>(
+        &self,
+        msgs: &'a mut [raw::uffd_msg],
+    ) -> Result<impl Iterator<Item = Result<Event>> + 'a> {
+        const MSG_SIZE: usize = std::mem::size_of::<raw::uffd_msg>();
+
+        let buf = unsafe {
+            std::slice::from_raw_parts_mut(msgs.as_mut_ptr() as _, msgs.len() * MSG_SIZE)
+        };
+
+        let count = match read(self.as_raw_fd(), buf) {
             Err(e) if e.as_errno() == Some(Errno::EAGAIN) => 0,
             Err(e) => return Err(Error::SystemError(e)),
-            Ok(nread) => {
-                if nread == libc::EOF as usize {
+            Ok(bytes_read) => {
+                if bytes_read == libc::EOF as usize {
                     return Err(Error::ReadEof);
                 }
-                let remainder = nread % UFFD_EVENT_SIZE;
+
+                let remainder = bytes_read % MSG_SIZE;
                 if remainder != 0 {
                     return Err(Error::IncompleteMsg {
                         read: remainder,
-                        expected: UFFD_EVENT_SIZE,
+                        expected: MSG_SIZE,
                     });
                 }
-                nread
+
+                bytes_read / MSG_SIZE
             }
         };
 
-        Ok(buf[..nread].chunks(UFFD_EVENT_SIZE).map(|msg| {
-            let msg = unsafe { &*(msg.as_ptr() as *const raw::uffd_msg) };
-            Event::from_uffd_msg(msg)
-        }))
+        Ok(msgs.iter().take(count).map(|msg| Event::from_uffd_msg(msg)))
     }
 }
 
@@ -453,7 +472,7 @@ mod test {
             }
 
             // Read all the events at once
-            let mut buf = [0; MAX_THREADS * UFFD_EVENT_SIZE];
+            let mut buf = EventBuffer::new(MAX_THREADS);
             let mut iter = uffd.read_events(&mut buf)?;
 
             let mut seen = [false; MAX_THREADS];
