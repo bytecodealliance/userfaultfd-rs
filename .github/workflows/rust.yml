@@ -15,8 +15,13 @@ jobs:
     - uses: actions/checkout@v2
     - name: Build
       run: cargo build --verbose
-    - name: Run tests
+    - name: Run tests (Linux 4.11 support)
       run: cargo test --verbose
+    - name: Run tests (Linux 4.14 support)
+      run: cargo test --verbose --features linux4_14
+    # Disable the 5.7 tests for now until CI has a kernel that can run it
+    # - name: Run tests (Linux 5.7 support)
+    #   run: cargo test --verbose --features linux5_7
 
   audit:
 

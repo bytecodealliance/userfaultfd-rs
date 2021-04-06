@@ -14,7 +14,7 @@ mod raw;
 
 pub use crate::builder::{FeatureFlags, UffdBuilder};
 pub use crate::error::{Error, Result};
-pub use crate::event::{Event, ReadWrite};
+pub use crate::event::{Event, FaultKind, ReadWrite};
 
 use bitflags::bitflags;
 use libc::{self, c_void};
@@ -71,20 +71,40 @@ impl FromRawFd for Uffd {
     }
 }
 
+bitflags! {
+    /// The registration mode used when registering an address range with `Uffd`.
+    pub struct RegisterMode: u64 {
+        /// Registers the range for missing page faults.
+        const MISSING = raw::UFFDIO_REGISTER_MODE_MISSING;
+        /// Registers the range for write faults.
+        #[cfg(feature = "linux5_7")]
+        const WRITE_PROTECT = raw::UFFDIO_REGISTER_MODE_WP;
+    }
+}
+
 impl Uffd {
     /// Register a memory address range with the userfaultfd object, and returns the `IoctlFlags`
     /// that are available for the selected range.
     ///
-    /// While the underlying `ioctl` call accepts mode flags, only one mode
-    /// (`UFFDIO_REGISTER_MODE_MISSING`) is currently supported.
+    /// This method only registers the given range for missing page faults.
     pub fn register(&self, start: *mut c_void, len: usize) -> Result<IoctlFlags> {
+        self.register_with_mode(start, len, RegisterMode::MISSING)
+    }
+
+    /// Register a memory address range with the userfaultfd object for the given mode and
+    /// returns the `IoctlFlags` that are available for the selected range.
+    pub fn register_with_mode(
+        &self,
+        start: *mut c_void,
+        len: usize,
+        mode: RegisterMode,
+    ) -> Result<IoctlFlags> {
         let mut register = raw::uffdio_register {
             range: raw::uffdio_range {
                 start: start as u64,
                 len: len as u64,
             },
-            // this is the only mode currently supported
-            mode: raw::UFFDIO_REGISTER_MODE_MISSING,
+            mode: mode.bits(),
             ioctls: 0,
         };
         unsafe {
@@ -105,10 +125,10 @@ impl Uffd {
         Ok(())
     }
 
-    /// Atomically copy a continuous memory chunk into the userfaultfd-registed range, and return
+    /// Atomically copy a continuous memory chunk into the userfaultfd-registered range, and return
     /// the number of bytes that were successfully copied.
     ///
-    /// If `wake` is `true`, wake up the thread waiting for pagefault resolution on the memory
+    /// If `wake` is `true`, wake up the thread waiting for page fault resolution on the memory
     /// range.
     pub unsafe fn copy(
         &self,
@@ -149,7 +169,7 @@ impl Uffd {
     /// Zero out a memory address range registered with userfaultfd, and return the number of bytes
     /// that were successfully zeroed.
     ///
-    /// If `wake` is `true`, wake up the thread waiting for pagefault resolution on the memory
+    /// If `wake` is `true`, wake up the thread waiting for page fault resolution on the memory
     /// address range.
     pub unsafe fn zeropage(&self, start: *mut c_void, len: usize, wake: bool) -> Result<usize> {
         let mut zeropage = raw::uffdio_zeropage {
@@ -184,7 +204,7 @@ impl Uffd {
         }
     }
 
-    /// Wake up the thread waiting for pagefault resolution on the specified memory address range.
+    /// Wake up the thread waiting for page fault resolution on the specified memory address range.
     pub fn wake(&self, start: *mut c_void, len: usize) -> Result<()> {
         let mut range = raw::uffdio_range {
             start: start as u64,
@@ -193,6 +213,60 @@ impl Uffd {
         unsafe {
             raw::wake(self.as_raw_fd(), &mut range as *mut raw::uffdio_range)?;
         }
+        Ok(())
+    }
+
+    /// Makes a range write-protected.
+    #[cfg(feature = "linux5_7")]
+    pub fn write_protect(&self, start: *mut c_void, len: usize) -> Result<()> {
+        let mut ioctl = raw::uffdio_writeprotect {
+            range: raw::uffdio_range {
+                start: start as u64,
+                len: len as u64,
+            },
+            mode: raw::UFFDIO_WRITEPROTECT_MODE_WP,
+        };
+
+        unsafe {
+            raw::write_protect(
+                self.as_raw_fd(),
+                &mut ioctl as *mut raw::uffdio_writeprotect,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    /// Removes the write-protection for a range.
+    ///
+    /// If `wake` is `true`, wake up the thread waiting for page fault resolution on the memory
+    /// address range.
+    #[cfg(feature = "linux5_7")]
+    pub fn remove_write_protection(
+        &self,
+        start: *mut c_void,
+        len: usize,
+        wake: bool,
+    ) -> Result<()> {
+        let mut ioctl = raw::uffdio_writeprotect {
+            range: raw::uffdio_range {
+                start: start as u64,
+                len: len as u64,
+            },
+            mode: if wake {
+                0
+            } else {
+                raw::UFFDIO_WRITEPROTECT_MODE_DONTWAKE
+            },
+        };
+
+        unsafe {
+            raw::write_protect(
+                self.as_raw_fd(),
+                &mut ioctl as *mut raw::uffdio_writeprotect,
+            )?;
+        }
+
         Ok(())
     }
 
@@ -303,6 +377,8 @@ bitflags! {
         const WAKE = 1 << raw::_UFFDIO_WAKE;
         const COPY = 1 << raw::_UFFDIO_COPY;
         const ZEROPAGE = 1 << raw::_UFFDIO_ZEROPAGE;
+        #[cfg(feature = "linux5_7")]
+        const WRITE_PROTECT = 1 << raw::_UFFDIO_WRITEPROTECT;
         const API = 1 << raw::_UFFDIO_API;
     }
 }
@@ -505,6 +581,94 @@ mod test {
             uffd.unregister(mapping, MEM_SIZE)?;
 
             assert_eq!(libc::munmap(mapping, MEM_SIZE), 0);
+        }
+
+        Ok(())
+    }
+
+    #[cfg(feature = "linux5_7")]
+    #[test]
+    fn test_write_protect() -> Result<()> {
+        const PAGE_SIZE: usize = 4096;
+
+        unsafe {
+            let uffd = UffdBuilder::new()
+                .require_features(FeatureFlags::PAGEFAULT_FLAG_WP)
+                .close_on_exec(true)
+                .create()?;
+
+            let mapping = libc::mmap(
+                ptr::null_mut(),
+                PAGE_SIZE,
+                libc::PROT_READ | libc::PROT_WRITE,
+                libc::MAP_PRIVATE | libc::MAP_ANON,
+                -1,
+                0,
+            );
+
+            assert!(!mapping.is_null());
+
+            // This test uses both missing and write-protect modes for a reason.
+            // The `uffdio_writeprotect` ioctl can only be used on a range *after*
+            // the missing fault is handled, it seems. This means we either need to
+            // read/write the page *before* we protect it or handle the missing
+            // page fault by changing the protection level *after* we zero the page.
+            assert!(uffd
+                .register_with_mode(
+                    mapping,
+                    PAGE_SIZE,
+                    RegisterMode::MISSING | RegisterMode::WRITE_PROTECT
+                )?
+                .contains(IoctlFlags::WRITE_PROTECT));
+
+            let ptr = mapping as usize;
+            let thread = thread::spawn(move || {
+                let ptr = ptr as *mut u8;
+                *ptr = 1;
+                *ptr = 2;
+            });
+
+            loop {
+                match uffd.read_event()? {
+                    Some(Event::Pagefault {
+                        kind,
+                        rw: ReadWrite::Write,
+                        addr,
+                        ..
+                    }) => match kind {
+                        FaultKind::WriteProtected => {
+                            assert_eq!(addr, mapping);
+                            assert_eq!(*(addr as *const u8), 0);
+                            // Remove the protection and wake the page
+                            uffd.remove_write_protection(mapping, PAGE_SIZE, true)?;
+                            break;
+                        }
+                        FaultKind::Missing => {
+                            assert_eq!(addr, mapping);
+                            uffd.zeropage(mapping, PAGE_SIZE, false)?;
+
+                            // Technically, we already know it was a write that triggered
+                            // the missing page fault, so there's little point in immediately
+                            // write-protecting the page to cause another fault; in the real
+                            // world, a missing fault with `rw` being `ReadWrite::Write` would
+                            // be enough to mark the page as "dirty". For this test, however,
+                            // we do it this way to ensure a write-protected fault is read.
+                            assert_eq!(*(addr as *const u8), 0);
+                            uffd.write_protect(mapping, PAGE_SIZE)?;
+                            uffd.wake(mapping, PAGE_SIZE)?;
+                        }
+                    },
+                    _ => panic!("unexpected event"),
+                }
+            }
+
+            thread.join().expect("failed to join thread");
+
+            assert_eq!(*(mapping as *const u8), 2);
+
+            uffd.unregister(mapping, PAGE_SIZE)?;
+
+            assert_eq!(libc::munmap(mapping, PAGE_SIZE), 0);
         }
 
         Ok(())

@@ -5,7 +5,7 @@ use bitflags::bitflags;
 use nix::errno::Errno;
 
 cfg_if::cfg_if! {
-    if #[cfg(linux4_14)] {
+    if #[cfg(any(feature = "linux5_7", feature = "linux4_14"))] {
         bitflags! {
             /// Used with `UffdBuilder` to determine which features are available in the current kernel.
             pub struct FeatureFlags: u64 {

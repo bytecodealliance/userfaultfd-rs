@@ -6,10 +6,21 @@ use libc::c_void;
 use nix::unistd::Pid;
 use std::os::unix::io::{FromRawFd, RawFd};
 
+/// Whether a page fault event was for a read or write.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ReadWrite {
     Read,
     Write,
+}
+
+/// The kind of fault for a page fault event.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum FaultKind {
+    /// The fault was a read or write on a missing page.
+    Missing,
+    /// The fault was a write on a write-protected page.
+    #[cfg(feature = "linux5_7")]
+    WriteProtected,
 }
 
 /// Events from the userfaultfd object that are read by `Uffd::read_event()`.
@@ -17,6 +28,8 @@ pub enum ReadWrite {
 pub enum Event {
     /// A pagefault event.
     Pagefault {
+        /// The kind of fault.
+        kind: FaultKind,
         /// Whether the fault is on a read or a write.
         rw: ReadWrite,
         /// The address that triggered the fault.
@@ -69,6 +82,18 @@ impl Event {
         match msg.event {
             raw::UFFD_EVENT_PAGEFAULT => {
                 let pagefault = unsafe { msg.arg.pagefault };
+                cfg_if::cfg_if!(
+                    if #[cfg(feature = "linux5_7")] {
+                        let kind = if pagefault.flags & raw::UFFD_PAGEFAULT_FLAG_WP != 0 {
+                            FaultKind::WriteProtected
+                        } else {
+                            FaultKind::Missing
+                        };
+                    } else {
+                        let kind = FaultKind::Missing;
+                    }
+                );
+
                 let rw = if pagefault.flags & raw::UFFD_PAGEFAULT_FLAG_WRITE == 0 {
                     ReadWrite::Read
                 } else {
@@ -77,6 +102,7 @@ impl Event {
                 #[cfg(linux4_14)]
                 let thread_id = Pid::from_raw(unsafe { pagefault.feat.ptid });
                 Ok(Event::Pagefault {
+                    kind,
                     rw,
                     addr: pagefault.address as *mut c_void,
                     #[cfg(linux4_14)]
