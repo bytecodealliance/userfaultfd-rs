@@ -19,9 +19,16 @@ jobs:
       run: cargo test --verbose
     - name: Run tests (Linux 4.14 support)
       run: cargo test --verbose --features linux4_14
-    # Disable the 5.7 tests for now until CI has a kernel that can run it
-    # - name: Run tests (Linux 5.7 support)
-    #   run: cargo test --verbose --features linux5_7
+
+    # Github does not have a 5.7+ kernel available yet, so we cannot execute
+    # these tests, however we can make sure that the build works.
+    # The LINUX_HEADERS environment variable is optional and points to headers
+    # to use instead of the toolchain's system include path.
+    - name: Build (Linux 5.7 support)
+      run:
+        sudo apt update && sudo apt install -y linux-headers-5.8.0-49-generic
+        export LINUX_HEADERS=/usr/src/linux-headers-5.8.0-49-generic
+        cargo build --verbose --features linux5_7
 
   audit:
 
