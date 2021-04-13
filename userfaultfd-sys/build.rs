@@ -13,17 +13,34 @@ fn main() {
 }
 
 fn generate_bindings() {
-    let bindings = bindgen::Builder::default()
+    let mut bindings = bindgen::Builder::default()
         .header("wrapper.h")
         // filter out stuff from <linux/types.h>
         .blacklist_item("__BITS_PER_LONG")
         .blacklist_item("__FD_SETSIZE")
         .blacklist_type("__[lb]e.*")
         .blacklist_type("__w?sum.*")
-        .blacklist_type("__kernel_.*")
-        .parse_callbacks(Box::new(Callbacks {}))
-        .generate()
-        .expect("binding generation failed");
+        .blacklist_type("__kernel_*")
+        .parse_callbacks(Box::new(Callbacks {}));
+
+    if let Ok(linux_headers) = std::env::var("LINUX_HEADERS") {
+        let mut incl_dir = PathBuf::from(&linux_headers);
+        incl_dir.push("include");
+        assert!(
+            incl_dir.exists(),
+            "LINUX_HEADERS env variable contains an include/ directory"
+        );
+        incl_dir.push("uapi");
+        assert!(
+            incl_dir.exists(),
+            "LINUX_HEADERS env variable contains an include/uapi/ directory"
+        );
+        bindings = bindings
+            .clang_arg(format!("-isystem{}/include", linux_headers))
+            .clang_arg(format!("-isystem{}/include/uapi", linux_headers));
+    }
+
+    let bindings = bindings.generate().expect("binding generation failed");
 
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     bindings
