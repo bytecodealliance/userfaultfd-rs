@@ -26,8 +26,9 @@ jobs:
     # to use instead of the toolchain's system include path.
     - name: Build (Linux 5.7 support)
       run:
-        sudo apt update && sudo apt install -y linux-headers-5.8.0-49-generic
-        export LINUX_HEADERS=/usr/src/linux-headers-5.8.0-49-generic
+        sudo apt update &&
+        sudo apt install -y linux-headers-5.8.0-49-generic &&
+        export LINUX_HEADERS=/usr/src/linux-headers-5.8.0-49-generic &&
         cargo build --verbose --features linux5_7
 
   audit:
