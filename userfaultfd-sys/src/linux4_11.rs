@@ -27,21 +27,13 @@ mod const_tests {
     use super::*;
 
     extern "C" {
-        #[no_mangle]
         static _const_UFFD_API: u64;
-        #[no_mangle]
         static _const_UFFD_API_FEATURES: u64;
-        #[no_mangle]
         static _const_UFFD_API_IOCTLS: u64;
-        #[no_mangle]
         static _const_UFFD_API_RANGE_IOCTLS: u64;
-        #[no_mangle]
         static _const_UFFDIO_REGISTER_MODE_MISSING: u64;
-        #[no_mangle]
         static _const_UFFDIO_REGISTER_MODE_WP: u64;
-        #[no_mangle]
         static _const_UFFDIO_COPY_MODE_DONTWAKE: u64;
-        #[no_mangle]
         static _const_UFFDIO_ZEROPAGE_MODE_DONTWAKE: u64;
     }
 
