@@ -43,12 +43,14 @@ cfg_if::cfg_if! {
 /// let uffd = UffdBuilder::new()
 ///     .close_on_exec(true)
 ///     .non_blocking(true)
+///     .user_mode_only(true)
 ///     .create();
 /// assert!(uffd.is_ok());
 /// ```
 pub struct UffdBuilder {
     close_on_exec: bool,
     non_blocking: bool,
+    user_mode_only: bool,
     req_features: FeatureFlags,
     req_ioctls: IoctlFlags,
 }
@@ -60,6 +62,7 @@ impl UffdBuilder {
         UffdBuilder {
             close_on_exec: false,
             non_blocking: false,
+            user_mode_only: false,
             req_features: FeatureFlags::empty(),
             req_ioctls: IoctlFlags::empty(),
         }
@@ -78,6 +81,16 @@ impl UffdBuilder {
     /// read. Otherwise, it will immediately return `None` if no event is available.
     pub fn non_blocking(&mut self, non_blocking: bool) -> &mut Self {
         self.non_blocking = non_blocking;
+        self
+    }
+
+    /// Enable user-mode only flag for the userfaultfd object.
+    ///
+    /// If set to `false`, the process must have CAP_SYS_PTRACE capability starting with Linux 5.11
+    /// or object creation will fail with EPERM. When set to `true`, the userfaultfd can't be used
+    /// to handle kernel-mode page faults such as when kernel try copying data to userspace.
+    pub fn user_mode_only(&mut self, user_mode_only: bool) -> &mut Self {
+        self.user_mode_only = user_mode_only;
         self
     }
 
@@ -107,6 +120,10 @@ impl UffdBuilder {
         if self.non_blocking {
             flags |= libc::O_NONBLOCK;
         }
+        if self.user_mode_only {
+            flags |= raw::UFFD_USER_MODE_ONLY as i32;
+        }
+
         let fd = Errno::result(unsafe { raw::userfaultfd(flags) })?;
 
         // then do the UFFDIO_API ioctl to set up and ensure features and other ioctls are available
