@@ -394,7 +394,10 @@ mod test {
         const PAGE_SIZE: usize = 4096;
 
         unsafe {
-            let uffd = UffdBuilder::new().close_on_exec(true).create()?;
+            let uffd = UffdBuilder::new()
+                .close_on_exec(true)
+                .user_mode_only(true)
+                .create()?;
 
             let mapping = libc::mmap(
                 ptr::null_mut(),
@@ -445,6 +448,7 @@ mod test {
             let uffd = UffdBuilder::new()
                 .close_on_exec(true)
                 .non_blocking(true)
+                .user_mode_only(true)
                 .create()?;
 
             let mapping = libc::mmap(
@@ -501,7 +505,10 @@ mod test {
             const PAGE_SIZE: usize = 4096;
             const MEM_SIZE: usize = PAGE_SIZE * MAX_THREADS;
 
-            let uffd = UffdBuilder::new().close_on_exec(true).create()?;
+            let uffd = UffdBuilder::new()
+                .close_on_exec(true)
+                .user_mode_only(true)
+                .create()?;
 
             let mapping = libc::mmap(
                 ptr::null_mut(),

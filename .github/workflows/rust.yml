@@ -31,6 +31,17 @@ jobs:
         export LINUX_HEADERS=/usr/src/linux-headers-5.8.0-49-generic &&
         cargo build --verbose --features linux5_7
 
+    # As for 5.7, we cannot execute tests. Linux 5.11+ is not available at all
+    # yet for Ubuntu 20.04, so we pull the headers from Ubuntu 21.04.
+    - name: Build (Linux 5.11 support)
+      run:
+        echo 'deb http://cz.archive.ubuntu.com/ubuntu hirsute main' | \
+            sudo tee -a /etc/apt/sources.list &&
+        sudo apt update &&
+        sudo apt install -y linux-headers-5.11.0-16-generic &&
+        export LINUX_HEADERS=/usr/src/linux-headers-5.11.0-16-generic &&
+        cargo build --verbose --features linux5_11
+
   audit:
 
     runs-on: ubuntu-latest

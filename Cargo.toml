@@ -20,3 +20,4 @@ userfaultfd-sys = { path = "userfaultfd-sys", version = "^0.3.0" }
 default = []
 linux4_14 = ["userfaultfd-sys/linux4_14"]
 linux5_7 = ["userfaultfd-sys/linux5_7"]
+linux5_11 = ["userfaultfd-sys/linux5_7"]
