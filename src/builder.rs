@@ -124,6 +124,8 @@ impl UffdBuilder {
             flags |= libc::O_NONBLOCK;
         }
 
+        // setting this flag on kernel pre-5.11 causes it to return EINVAL, so we set the flag
+        // only when running on newer kernel
         if self.user_mode_only
             && linux_version::linux_kernel_version()
                 .map(|v| v >= linux_version::Version::new(5, 11, 0))
