@@ -13,4 +13,4 @@ nix = "0.17"
 semver = "0.9"
 
 [build-dependencies]
-bindgen = { version = "0.51", default-features = false }
+bindgen = { version = "0.57", default-features = false }

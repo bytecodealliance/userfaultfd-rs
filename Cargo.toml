@@ -14,10 +14,10 @@ cfg-if = "^1.0.0"
 libc = "0.2.65"
 nix = "0.17"
 thiserror = "1.0.4"
+linux-version = { "path" = "linux-version" }
 userfaultfd-sys = { path = "userfaultfd-sys", version = "^0.3.0" }
 
 [features]
 default = []
 linux4_14 = ["userfaultfd-sys/linux4_14"]
 linux5_7 = ["userfaultfd-sys/linux5_7"]
-linux5_11 = ["userfaultfd-sys/linux5_7"]
