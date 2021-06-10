@@ -86,12 +86,12 @@ impl UffdBuilder {
 
     /// Enable user-mode only flag for the userfaultfd object.
     ///
-    /// If set to `false`, the process must have CAP_SYS_PTRACE capability starting with Linux 5.11
-    /// or object creation will fail with EPERM. When set to `true`, the userfaultfd can't be used
-    /// to handle kernel-mode page faults such as when kernel try copying data to userspace.
+    /// If set to `false`, the process must have the `CAP_SYS_PTRACE` capability starting with Linux 5.11
+    /// or object creation will fail with EPERM. When set to `true`, userfaultfd can't be used
+    /// to handle kernel-mode page faults such as when kernel tries copying data to userspace.
     ///
-    /// When used with kernel before version 5.11, this has no effect, the process doesn't need
-    /// CAP_SYS_PTRACE and can handle kernel-mode page fault.
+    /// When used with kernels older than 5.11, this has no effect; the process doesn't need
+    /// `CAP_SYS_PTRACE` and can handle kernel-mode page faults.
     pub fn user_mode_only(&mut self, user_mode_only: bool) -> &mut Self {
         self.user_mode_only = user_mode_only;
         self
