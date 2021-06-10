@@ -56,13 +56,13 @@ pub struct UffdBuilder {
 }
 
 impl UffdBuilder {
-    /// Create a new builder with no required features or ioctls, and `close_on_exec` and
-    /// `non_blocking` both set to `false`.
+    /// Create a new builder with no required features or ioctls, `close_on_exec` and
+    /// `non_blocking` both set to `false`, and `user_mode_only` set to `true`.
     pub fn new() -> UffdBuilder {
         UffdBuilder {
             close_on_exec: false,
             non_blocking: false,
-            user_mode_only: false,
+            user_mode_only: true,
             req_features: FeatureFlags::empty(),
             req_ioctls: IoctlFlags::empty(),
         }
