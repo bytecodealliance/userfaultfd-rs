@@ -348,11 +348,8 @@ impl Uffd {
         let count = match read(self.as_raw_fd(), buf) {
             Err(e) if e.as_errno() == Some(Errno::EAGAIN) => 0,
             Err(e) => return Err(Error::SystemError(e)),
+            Ok(0) => return Err(Error::ReadEof),
             Ok(bytes_read) => {
-                if bytes_read == libc::EOF as usize {
-                    return Err(Error::ReadEof);
-                }
-
                 let remainder = bytes_read % MSG_SIZE;
                 if remainder != 0 {
                     return Err(Error::IncompleteMsg {
