@@ -1,6 +1,6 @@
 [package]
 name = "userfaultfd"
-version = "0.3.3"
+version = "0.4.0"
 authors = ["Adam C. Foltzer <acfoltzer@fastly.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
