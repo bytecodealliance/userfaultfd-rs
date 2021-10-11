@@ -10,7 +10,7 @@ repository = "https://github.com/fastly/userfaultfd-rs"
 build = "build.rs"
 
 [dependencies]
-nix = "0.17"
+nix = "0.23"
 semver = "0.9"
 
 [build-dependencies]
