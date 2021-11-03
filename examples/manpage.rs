@@ -89,6 +89,7 @@ fn main() {
     let uffd = UffdBuilder::new()
         .close_on_exec(true)
         .non_blocking(true)
+        .user_mode_only(true)
         .create()
         .expect("uffd creation");
 
