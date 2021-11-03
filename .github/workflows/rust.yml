@@ -25,7 +25,11 @@ jobs:
     - name: Run tests (Linux 4.14 support)
       run: cargo test --verbose --features linux4_14
     - name: Run tests (Linux 5.7 support)
-      run: cargo test --verbose --features linux5_7
+      run:
+        sudo apt update &&
+        sudo apt install -y linux-headers-5.11.0-25-generic &&
+        export LINUX_HEADERS=/usr/src/linux-headers-5.11.0-25-generic &&
+        cargo test --verbose --features linux5_7
 
   audit:
 
