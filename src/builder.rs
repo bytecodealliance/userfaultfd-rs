@@ -124,18 +124,20 @@ impl UffdBuilder {
             flags |= libc::O_NONBLOCK;
         }
 
-        // setting this flag on kernel pre-5.11 causes it to return EINVAL, so we set the flag
-        // only when running on newer kernel
-        if self.user_mode_only
-            && linux_version::linux_kernel_version()
-                .map(|v| v >= linux_version::Version::new(5, 11, 0))
-                .unwrap_or(true)
-        {
-            flags |= raw::UFFD_USER_MODE_ONLY as i32;
-        }
-
+        // setting the USER_MODE_ONLY flag on kernel pre-5.11 causes it to return EINVAL.
+        // If the user asks for the flag, we first try with it set, and if kernel gives
+        // EINVAL we try again without the flag set.
         let uffd = Uffd {
-            fd: Errno::result(unsafe { raw::userfaultfd(flags) })?,
+            fd: if self.user_mode_only {
+                let umode_flags = flags | raw::UFFD_USER_MODE_ONLY as i32;
+                match Errno::result(unsafe { raw::userfaultfd(umode_flags) }) {
+                    Ok(fd) => fd,
+                    Err(Errno::EINVAL) => Errno::result(unsafe { raw::userfaultfd(flags) })?,
+                    Err(e) => Err(e)?,
+                }
+            } else {
+                Errno::result(unsafe { raw::userfaultfd(flags) })?
+            },
         };
 
         // then do the UFFDIO_API ioctl to set up and ensure features and other ioctls are available
