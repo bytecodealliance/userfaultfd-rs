@@ -1,6 +1,6 @@
 [package]
 name = "userfaultfd"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["Adam C. Foltzer <acfoltzer@fastly.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -14,7 +14,7 @@ cfg-if = "^1.0.0"
 libc = "0.2.65"
 nix = "0.23"
 thiserror = "1.0.4"
-userfaultfd-sys = { path = "userfaultfd-sys", version = "^0.3.0" }
+userfaultfd-sys = { path = "userfaultfd-sys", version = "^0.4.0" }
 
 [features]
 default = []
