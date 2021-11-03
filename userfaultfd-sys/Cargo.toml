@@ -1,10 +1,11 @@
 [package]
 name = "userfaultfd-sys"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Adam C. Foltzer <acfoltzer@fastly.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 description = "Low-level bindings for userfaultfd functionality on Linux."
+repository = "https://github.com/fastly/userfaultfd-rs"
 
 build = "build.rs"
 
@@ -12,7 +13,7 @@ build = "build.rs"
 cfg-if = "0.1"
 
 [build-dependencies]
-bindgen = { version = "0.57", default-features = false, features = ["runtime"]  }
+bindgen = { version = "^0.59.1", default-features = false, features = ["runtime"]  }
 cc = "1.0"
 
 [features]

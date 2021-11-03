@@ -16,11 +16,11 @@ fn generate_bindings() {
     let mut bindings = bindgen::Builder::default()
         .header("wrapper.h")
         // filter out stuff from <linux/types.h>
-        .blacklist_item("__BITS_PER_LONG")
-        .blacklist_item("__FD_SETSIZE")
-        .blacklist_type("__[lb]e.*")
-        .blacklist_type("__w?sum.*")
-        .blacklist_type("__kernel_*")
+        .blocklist_item("__BITS_PER_LONG")
+        .blocklist_item("__FD_SETSIZE")
+        .blocklist_type("__[lb]e.*")
+        .blocklist_type("__w?sum.*")
+        .blocklist_type("__kernel_*")
         .parse_callbacks(Box::new(Callbacks {}));
 
     if let Ok(linux_headers) = std::env::var("LINUX_HEADERS") {

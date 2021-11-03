@@ -5,11 +5,12 @@ authors = ["Adam C. Foltzer <acfoltzer@fastly.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 description = "Package for detecting the version of the linux kernel a program is being run on."
+repository = "https://github.com/fastly/userfaultfd-rs"
 
 build = "build.rs"
 
 [dependencies]
-nix = "0.17"
+nix = "0.23"
 semver = "0.9"
 
 [build-dependencies]

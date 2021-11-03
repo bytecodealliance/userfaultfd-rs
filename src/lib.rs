@@ -149,20 +149,13 @@ impl Uffd {
             copy: 0,
         };
 
-        let res = raw::copy(self.as_raw_fd(), &mut copy as *mut raw::uffdio_copy);
-        if let Err(e) = res {
-            if let Some(errno) = e.as_errno() {
-                Err(Error::CopyFailed(errno))
-            } else {
-                Err(e.into())
-            }
+        let _ = raw::copy(self.as_raw_fd(), &mut copy as *mut raw::uffdio_copy)
+            .map_err(Error::CopyFailed)?;
+        if copy.copy < 0 {
+            // shouldn't ever get here, as errno should be caught above
+            Err(Error::CopyFailed(Errno::from_i32(-copy.copy as i32)))
         } else {
-            if copy.copy < 0 {
-                // shouldn't ever get here, as errno should be caught above
-                Err(Error::CopyFailed(Errno::from_i32(-copy.copy as i32)))
-            } else {
-                Ok(copy.copy as usize)
-            }
+            Ok(copy.copy as usize)
         }
     }
 
@@ -185,22 +178,15 @@ impl Uffd {
             zeropage: 0,
         };
 
-        let res = raw::zeropage(self.as_raw_fd(), &mut zeropage as &mut raw::uffdio_zeropage);
-        if let Err(e) = res {
-            if let Some(errno) = e.as_errno() {
-                Err(Error::ZeropageFailed(errno))
-            } else {
-                Err(e.into())
-            }
+        let _ = raw::zeropage(self.as_raw_fd(), &mut zeropage as &mut raw::uffdio_zeropage)
+            .map_err(Error::ZeropageFailed)?;
+        if zeropage.zeropage < 0 {
+            // shouldn't ever get here, as errno should be caught above
+            Err(Error::ZeropageFailed(Errno::from_i32(
+                -zeropage.zeropage as i32,
+            )))
         } else {
-            if zeropage.zeropage < 0 {
-                // shouldn't ever get here, as errno should be caught above
-                Err(Error::ZeropageFailed(Errno::from_i32(
-                    -zeropage.zeropage as i32,
-                )))
-            } else {
-                Ok(zeropage.zeropage as usize)
-            }
+            Ok(zeropage.zeropage as usize)
         }
     }
 
@@ -346,13 +332,10 @@ impl Uffd {
         };
 
         let count = match read(self.as_raw_fd(), buf) {
-            Err(e) if e.as_errno() == Some(Errno::EAGAIN) => 0,
+            Err(e) if e == Errno::EAGAIN => 0,
             Err(e) => return Err(Error::SystemError(e)),
+            Ok(0) => return Err(Error::ReadEof),
             Ok(bytes_read) => {
-                if bytes_read == libc::EOF as usize {
-                    return Err(Error::ReadEof);
-                }
-
                 let remainder = bytes_read % MSG_SIZE;
                 if remainder != 0 {
                     return Err(Error::IncompleteMsg {
