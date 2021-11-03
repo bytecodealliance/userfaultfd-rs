@@ -13,6 +13,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Install deps
+      # linux-version requires bindgen, which needs libclang
+      run: sudo apt update && sudo apt install -y libclang-6.0-dev
     - name: Build
       run: cargo build --verbose
     - name: Run tests (Linux 4.11 support)
