@@ -107,7 +107,9 @@ impl UffdBuilder {
         if self.non_blocking {
             flags |= libc::O_NONBLOCK;
         }
-        let fd = Errno::result(unsafe { raw::userfaultfd(flags) })?;
+        let uffd = Uffd {
+            fd: Errno::result(unsafe { raw::userfaultfd(flags) })?,
+        };
 
         // then do the UFFDIO_API ioctl to set up and ensure features and other ioctls are available
         let mut api = raw::uffdio_api {
@@ -116,14 +118,14 @@ impl UffdBuilder {
             ioctls: 0,
         };
         unsafe {
-            raw::api(fd, &mut api as *mut raw::uffdio_api)?;
+            raw::api(uffd.fd, &mut api as *mut raw::uffdio_api)?;
         }
         let supported =
             IoctlFlags::from_bits(api.ioctls).ok_or(Error::UnrecognizedIoctls(api.ioctls))?;
         if !supported.contains(self.req_ioctls) {
             Err(Error::UnsupportedIoctls(supported))
         } else {
-            Ok(Uffd { fd })
+            Ok(uffd)
         }
     }
 }
