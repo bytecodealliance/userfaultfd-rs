@@ -127,18 +127,19 @@ impl UffdBuilder {
         // setting the USER_MODE_ONLY flag on kernel pre-5.11 causes it to return EINVAL.
         // If the user asks for the flag, we first try with it set, and if kernel gives
         // EINVAL we try again without the flag set.
-        let uffd = Uffd {
-            fd: if self.user_mode_only {
-                let umode_flags = flags | raw::UFFD_USER_MODE_ONLY as i32;
-                match Errno::result(unsafe { raw::userfaultfd(umode_flags) }) {
-                    Ok(fd) => fd,
-                    Err(Errno::EINVAL) => Errno::result(unsafe { raw::userfaultfd(flags) })?,
-                    Err(e) => Err(e)?,
-                }
-            } else {
-                Errno::result(unsafe { raw::userfaultfd(flags) })?
-            },
+        let fd = if self.user_mode_only {
+            let umode_flags = flags | raw::UFFD_USER_MODE_ONLY as i32;
+            match Errno::result(unsafe { raw::userfaultfd(umode_flags) }) {
+                Ok(fd) => fd,
+                Err(Errno::EINVAL) => Errno::result(unsafe { raw::userfaultfd(flags) })?,
+                Err(e) => Err(e)?,
+            }
+        } else {
+            Errno::result(unsafe { raw::userfaultfd(flags) })?
         };
+
+        // Wrap the fd up so that a failure in this function body closes it with the drop.
+        let uffd = Uffd { fd };
 
         // then do the UFFDIO_API ioctl to set up and ensure features and other ioctls are available
         let mut api = raw::uffdio_api {
