@@ -124,18 +124,19 @@ impl UffdBuilder {
             flags |= libc::O_NONBLOCK;
         }
 
-        // setting the USER_MODE_ONLY flag on kernel pre-5.11 causes it to return EINVAL.
-        // If the user asks for the flag, we first try with it set, and if kernel gives
-        // EINVAL we try again without the flag set.
-        let fd = if self.user_mode_only {
-            let umode_flags = flags | raw::UFFD_USER_MODE_ONLY as i32;
-            match Errno::result(unsafe { raw::userfaultfd(umode_flags) }) {
-                Ok(fd) => fd,
-                Err(Errno::EINVAL) => Errno::result(unsafe { raw::userfaultfd(flags) })?,
-                Err(e) => Err(e)?,
-            }
-        } else {
-            Errno::result(unsafe { raw::userfaultfd(flags) })?
+        if self.user_mode_only {
+            flags |= raw::UFFD_USER_MODE_ONLY as i32;
+        }
+
+        let fd = match Errno::result(unsafe { raw::userfaultfd(flags) }) {
+            Ok(fd) => fd,
+            // setting the USER_MODE_ONLY flag on kernel pre-5.11 causes it to return EINVAL.
+            // If the user asks for the flag, we first try with it set, and if kernel gives
+            // EINVAL we try again without the flag set.
+            Err(Errno::EINVAL) if self.user_mode_only => Errno::result(unsafe {
+                raw::userfaultfd(flags & !raw::UFFD_USER_MODE_ONLY as i32)
+            })?,
+            Err(e) => return Err(e.into()),
         };
 
         // Wrap the fd up so that a failure in this function body closes it with the drop.
