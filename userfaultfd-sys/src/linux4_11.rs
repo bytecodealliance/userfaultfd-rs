@@ -19,8 +19,17 @@ pub const UFFDIO_REGISTER_MODE_MISSING: u64 = 1 << 0;
 pub const UFFDIO_REGISTER_MODE_WP: u64 = 1 << 1;
 
 pub const UFFDIO_COPY_MODE_DONTWAKE: u64 = 1 << 0;
+pub const UFFDIO_COPY_MODE_WP: u64 = 1 << 1;
 
 pub const UFFDIO_ZEROPAGE_MODE_DONTWAKE: u64 = 1 << 0;
+
+pub const UFFDIO_API: u32 = 0xc018aa3f;
+pub const UFFDIO_REGISTER: u32 = 0xc020aa00;
+pub const UFFDIO_UNREGISTER: u32 = 0x8010aa01;
+pub const UFFDIO_WAKE: u32 = 0x8010aa02;
+pub const UFFDIO_COPY: u32 = 0xc028aa03;
+pub const UFFDIO_ZEROPAGE: u32 = 0xc020aa04;
+pub const UFFDIO_WRITEPROTECT: u32 = 0xc018aa06;
 
 #[cfg(test)]
 mod const_tests {
@@ -34,7 +43,15 @@ mod const_tests {
         static _const_UFFDIO_REGISTER_MODE_MISSING: u64;
         static _const_UFFDIO_REGISTER_MODE_WP: u64;
         static _const_UFFDIO_COPY_MODE_DONTWAKE: u64;
+        static _const_UFFDIO_COPY_MODE_WP: u64;
         static _const_UFFDIO_ZEROPAGE_MODE_DONTWAKE: u64;
+        static _const_UFFDIO_API: u32;
+        static _const_UFFDIO_REGISTER: u32;
+        static _const_UFFDIO_UNREGISTER: u32;
+        static _const_UFFDIO_WAKE: u32;
+        static _const_UFFDIO_COPY: u32;
+        static _const_UFFDIO_ZEROPAGE: u32;
+        static _const_UFFDIO_WRITEPROTECT: u32;
     }
 
     #[test]
@@ -63,8 +80,25 @@ mod const_tests {
                 "UFFDIO_COPY_MODE_DONTWAKE"
             );
             assert_eq!(
+                UFFDIO_COPY_MODE_WP, _const_UFFDIO_COPY_MODE_WP,
+                "UFFDIO_COPY_MODE_WP"
+            );
+            assert_eq!(
                 UFFDIO_ZEROPAGE_MODE_DONTWAKE, _const_UFFDIO_ZEROPAGE_MODE_DONTWAKE,
                 "UFFDIO_ZEROPAGE_MODE_DONTWAKE"
+            );
+            assert_eq!(UFFDIO_API, _const_UFFDIO_API, "UFFDIO_API");
+            assert_eq!(UFFDIO_REGISTER, _const_UFFDIO_REGISTER, "UFFDIO_REGISTER");
+            assert_eq!(
+                UFFDIO_UNREGISTER, _const_UFFDIO_UNREGISTER,
+                "UFFDIO_UNREGISTER"
+            );
+            assert_eq!(UFFDIO_WAKE, _const_UFFDIO_WAKE, "UFFDIO_WAKE");
+            assert_eq!(UFFDIO_COPY, _const_UFFDIO_COPY, "UFFDIO_COPY");
+            assert_eq!(UFFDIO_ZEROPAGE, _const_UFFDIO_ZEROPAGE, "UFFDIO_ZEROPAGE");
+            assert_eq!(
+                UFFDIO_WRITEPROTECT, _const_UFFDIO_WRITEPROTECT,
+                "UFFDIO_WRITEPROTECT"
             );
         }
     }
