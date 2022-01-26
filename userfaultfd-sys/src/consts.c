@@ -1,4 +1,5 @@
 #include <linux/types.h>
+#include <linux/ioctl.h>
 #include <linux/userfaultfd.h>
 
 #ifdef UFFD_API
@@ -33,7 +34,38 @@ const __u64 _const_UFFDIO_REGISTER_MODE_WP = UFFDIO_REGISTER_MODE_WP;
 const __u64 _const_UFFDIO_COPY_MODE_DONTWAKE = UFFDIO_COPY_MODE_DONTWAKE;
 #endif
 
+#ifdef UFFDIO_COPY_MODE_WP
+const __u64 _const_UFFDIO_COPY_MODE_WP = UFFDIO_COPY_MODE_WP;
+#endif
+
 #ifdef UFFDIO_ZEROPAGE_MODE_DONTWAKE
 const __u64 _const_UFFDIO_ZEROPAGE_MODE_DONTWAKE = UFFDIO_ZEROPAGE_MODE_DONTWAKE;
 #endif
 
+#ifdef UFFDIO_API
+const __u32 _const_UFFDIO_API = UFFDIO_API;
+#endif
+
+#ifdef UFFDIO_REGISTER
+const __u32 _const_UFFDIO_REGISTER = UFFDIO_REGISTER;
+#endif
+
+#ifdef UFFDIO_UNREGISTER
+const __u32 _const_UFFDIO_UNREGISTER = UFFDIO_UNREGISTER;
+#endif
+
+#ifdef UFFDIO_WAKE
+const __u32 _const_UFFDIO_WAKE = UFFDIO_WAKE;
+#endif
+
+#ifdef UFFDIO_COPY
+const __u32 _const_UFFDIO_COPY = UFFDIO_COPY;
+#endif
+
+#ifdef UFFDIO_ZEROPAGE
+const __u32 _const_UFFDIO_ZEROPAGE = UFFDIO_ZEROPAGE;
+#endif
+
+#ifdef UFFDIO_WRITEPROTECT
+const __u32 _const_UFFDIO_WRITEPROTECT = UFFDIO_WRITEPROTECT;
+#endif
