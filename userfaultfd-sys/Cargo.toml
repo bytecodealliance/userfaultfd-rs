@@ -10,7 +10,7 @@ repository = "https://github.com/fastly/userfaultfd-rs"
 build = "build.rs"
 
 [dependencies]
-cfg-if = "0.1"
+cfg-if = "^1.0.0"
 
 [build-dependencies]
 bindgen = { version = "^0.60.1", default-features = false, features = ["runtime"]  }
