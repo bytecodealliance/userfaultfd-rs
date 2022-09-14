@@ -149,8 +149,13 @@ impl Uffd {
             copy: 0,
         };
 
-        let _ = raw::copy(self.as_raw_fd(), &mut copy as *mut raw::uffdio_copy)
-            .map_err(Error::CopyFailed)?;
+        let _ =
+            raw::copy(self.as_raw_fd(), &mut copy as *mut raw::uffdio_copy).map_err(|errno| {
+                match errno {
+                    Errno::EAGAIN => Error::PartiallyCopied(copy.copy as usize),
+                    _ => Error::CopyFailed(errno),
+                }
+            })?;
         if copy.copy < 0 {
             // shouldn't ever get here, as errno should be caught above
             Err(Error::CopyFailed(Errno::from_i32(-copy.copy as i32)))
