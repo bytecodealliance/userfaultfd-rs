@@ -16,6 +16,10 @@ pub enum Error {
     #[error("Copy failed")]
     CopyFailed(Errno),
 
+    /// Copy ioctl failure with copied length.
+    #[error("Copy partially succeeded")]
+    PartiallyCopied(usize),
+
     /// Failure to read a full `uffd_msg` struct from the underlying file descriptor.
     #[error("Incomplete uffd_msg; read only {read}/{expected} bytes")]
     IncompleteMsg { read: usize, expected: usize },
