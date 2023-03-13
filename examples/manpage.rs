@@ -3,9 +3,8 @@ use libc::{self, c_void};
 use nix::poll::{poll, PollFd, PollFlags};
 use nix::sys::mman::{mmap, MapFlags, ProtFlags};
 use nix::unistd::{sysconf, SysconfVar};
-use std::env;
 use std::os::unix::io::AsRawFd;
-use std::ptr;
+use std::{convert::TryInto, env};
 use userfaultfd::{Event, Uffd, UffdBuilder};
 
 fn fault_handler_thread(uffd: Uffd) {
@@ -15,8 +14,8 @@ fn fault_handler_thread(uffd: Uffd) {
 
     let page = unsafe {
         mmap(
-            ptr::null_mut(),
-            page_size,
+            None,
+            page_size.try_into().unwrap(),
             ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
             MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
             -1,
@@ -64,7 +63,7 @@ fn fault_handler_thread(uffd: Uffd) {
             }
             fault_cnt += 1;
 
-            let dst = (addr as usize & !(page_size as usize - 1)) as *mut c_void;
+            let dst = (addr as usize & !(page_size - 1)) as *mut c_void;
             let copy = unsafe { uffd.copy(page, dst, page_size, true).expect("uffd copy") };
 
             println!("        (uffdio_copy.copy returned {})", copy);
@@ -98,8 +97,8 @@ fn main() {
 
     let addr = unsafe {
         mmap(
-            ptr::null_mut(),
-            len,
+            None,
+            len.try_into().unwrap(),
             ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
             MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
             -1,
