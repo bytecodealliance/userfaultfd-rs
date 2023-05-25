@@ -73,6 +73,7 @@ impl FromRawFd for Uffd {
 
 bitflags! {
     /// The registration mode used when registering an address range with `Uffd`.
+    #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct RegisterMode: u64 {
         /// Registers the range for missing page faults.
         const MISSING = raw::UFFDIO_REGISTER_MODE_MISSING;
@@ -359,6 +360,7 @@ impl Uffd {
 
 bitflags! {
     /// Used with `UffdBuilder` and `Uffd::register()` to determine which operations are available.
+    #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct IoctlFlags: u64 {
         const REGISTER = 1 << raw::_UFFDIO_REGISTER;
         const UNREGISTER = 1 << raw::_UFFDIO_UNREGISTER;

@@ -1,6 +1,7 @@
 ### Unreleased
 
 - Added `Uffd::read_events` that can read multiple events from the userfaultfd file descriptor.
+- Updated `bitflags` dependency to `2.2.1`.
 
 ### 0.3.1 (2021-02-17)
 

@@ -8,6 +8,7 @@ cfg_if::cfg_if! {
     if #[cfg(any(feature = "linux5_7", feature = "linux4_14"))] {
         bitflags! {
             /// Used with `UffdBuilder` to determine which features are available in the current kernel.
+            #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
             pub struct FeatureFlags: u64 {
                 const PAGEFAULT_FLAG_WP = raw::UFFD_FEATURE_PAGEFAULT_FLAG_WP;
                 const EVENT_FORK = raw::UFFD_FEATURE_EVENT_FORK;
@@ -23,6 +24,7 @@ cfg_if::cfg_if! {
     } else {
         bitflags! {
             /// Used with `UffdBuilder` to determine which features are available in the current kernel.
+            #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
             pub struct FeatureFlags: u64 {
                 const PAGEFAULT_FLAG_WP = raw::UFFD_FEATURE_PAGEFAULT_FLAG_WP;
                 const EVENT_FORK = raw::UFFD_FEATURE_EVENT_FORK;
