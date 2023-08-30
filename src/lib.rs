@@ -21,6 +21,7 @@ use libc::{self, c_void};
 use nix::errno::Errno;
 use nix::unistd::read;
 use std::mem;
+use std::os::fd::{AsFd, BorrowedFd};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 /// Represents an opaque buffer where userfaultfd events are stored.
@@ -50,6 +51,12 @@ pub struct Uffd {
 impl Drop for Uffd {
     fn drop(&mut self) {
         unsafe { libc::close(self.fd) };
+    }
+}
+
+impl AsFd for Uffd {
+    fn as_fd(&self) -> BorrowedFd<'_> {
+        unsafe { BorrowedFd::borrow_raw(self.as_raw_fd()) }
     }
 }
 
