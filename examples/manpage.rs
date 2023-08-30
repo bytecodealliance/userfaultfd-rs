@@ -3,7 +3,6 @@ use libc::{self, c_void};
 use nix::poll::{poll, PollFd, PollFlags};
 use nix::sys::mman::{mmap, MapFlags, ProtFlags};
 use nix::unistd::{sysconf, SysconfVar};
-use std::os::unix::io::AsRawFd;
 use std::{convert::TryInto, env};
 use userfaultfd::{Event, Uffd, UffdBuilder};
 
@@ -18,7 +17,7 @@ fn fault_handler_thread(uffd: Uffd) {
             page_size.try_into().unwrap(),
             ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
             MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
-            -1,
+            None::<std::os::fd::BorrowedFd>,
             0,
         )
         .expect("mmap")
@@ -30,7 +29,7 @@ fn fault_handler_thread(uffd: Uffd) {
     loop {
         // See what poll() tells us about the userfaultfd
 
-        let pollfd = PollFd::new(uffd.as_raw_fd(), PollFlags::POLLIN);
+        let pollfd = PollFd::new(&uffd, PollFlags::POLLIN);
         let nready = poll(&mut [pollfd], -1).expect("poll");
 
         println!("\nfault_handler_thread():");
@@ -101,7 +100,7 @@ fn main() {
             len.try_into().unwrap(),
             ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
             MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
-            -1,
+            None::<std::os::fd::BorrowedFd>,
             0,
         )
         .expect("mmap")
