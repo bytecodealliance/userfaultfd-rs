@@ -3,6 +3,11 @@ use crate::raw;
 use crate::{IoctlFlags, Uffd};
 use bitflags::bitflags;
 use nix::errno::Errno;
+use std::fs::{File, OpenOptions};
+use std::io::ErrorKind;
+use std::os::fd::AsRawFd;
+
+const UFFD_DEVICE_PATH: &str = "/dev/userfaultfd";
 
 cfg_if::cfg_if! {
     if #[cfg(any(feature = "linux5_7", feature = "linux4_14"))] {
@@ -115,6 +120,47 @@ impl UffdBuilder {
         self
     }
 
+    fn uffd_from_dev(&self, file: &mut File, flags: i32) -> Result<Uffd> {
+        match unsafe { raw::new_uffd(file.as_raw_fd(), flags) } {
+            Err(err) => Err(err.into()),
+            Ok(fd) => Ok(Uffd { fd }),
+        }
+    }
+
+    fn uffd_from_syscall(&self, flags: i32) -> Result<Uffd> {
+        let fd = match Errno::result(unsafe { raw::userfaultfd(flags) }) {
+            Ok(fd) => fd,
+            // setting the USER_MODE_ONLY flag on kernel pre-5.11 causes it to return EINVAL.
+            // If the user asks for the flag, we first try with it set, and if kernel gives
+            // EINVAL we try again without the flag set.
+            Err(Errno::EINVAL) if self.user_mode_only => Errno::result(unsafe {
+                raw::userfaultfd(flags & !raw::UFFD_USER_MODE_ONLY as i32)
+            })?,
+            Err(e) => return Err(e.into()),
+        };
+
+        // Wrap the fd up so that a failure in this function body closes it with the drop.
+        Ok(Uffd { fd })
+    }
+
+    // Try to get a UFFD file descriptor using `/dev/userfaultfd`. If that fails
+    // fall back to calling the system call.
+    fn open_file_descriptor(&self, flags: i32) -> Result<Uffd> {
+        // If `/dev/userfaultfd` exists we'll try to get the file descriptor from it. If the file
+        // doesn't exist we will fall back to calling the system call. This means, that if the
+        // device exists but the calling process does not have access rights to it, this will fail,
+        // i.e. we will not fall back to calling the system call.
+        match OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(UFFD_DEVICE_PATH)
+        {
+            Ok(mut file) => self.uffd_from_dev(&mut file, flags),
+            Err(err) if err.kind() == ErrorKind::NotFound => self.uffd_from_syscall(flags),
+            Err(err) => Err(Error::OpenDevUserfaultfd(err)),
+        }
+    }
+
     /// Create a `Uffd` object with the current settings of this builder.
     pub fn create(&self) -> Result<Uffd> {
         // first do the syscall to get the file descriptor
@@ -130,19 +176,7 @@ impl UffdBuilder {
             flags |= raw::UFFD_USER_MODE_ONLY as i32;
         }
 
-        let fd = match Errno::result(unsafe { raw::userfaultfd(flags) }) {
-            Ok(fd) => fd,
-            // setting the USER_MODE_ONLY flag on kernel pre-5.11 causes it to return EINVAL.
-            // If the user asks for the flag, we first try with it set, and if kernel gives
-            // EINVAL we try again without the flag set.
-            Err(Errno::EINVAL) if self.user_mode_only => Errno::result(unsafe {
-                raw::userfaultfd(flags & !raw::UFFD_USER_MODE_ONLY as i32)
-            })?,
-            Err(e) => return Err(e.into()),
-        };
-
-        // Wrap the fd up so that a failure in this function body closes it with the drop.
-        let uffd = Uffd { fd };
+        let uffd = self.open_file_descriptor(flags)?;
 
         // then do the UFFDIO_API ioctl to set up and ensure features and other ioctls are available
         let mut api = raw::uffdio_api {

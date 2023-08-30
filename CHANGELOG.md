@@ -2,6 +2,18 @@
 
 - Added `Uffd::read_events` that can read multiple events from the userfaultfd file descriptor.
 - Updated `bitflags` dependency to `2.2.1`.
+- Use `/dev/userfaultfd` as the default API for creating userfaultfd file descriptors.
+
+  Since Linux 5.11 a process can select if it wants to handle page faults triggered in kernel space
+  or not. Under this mechanism, processes that wish to handle those, need to have `CAP_SYS_PTRACE`
+  capability. `CAP_SYS_PTRACE` allows a process to do much more than create userfault fds, so with
+  6.1 Linux introduces `/dev/userfaultfd`, a special character device that allows creating
+  userfault file descriptors using the `USERFAULTFD_IOC_NEW` `ioctl`. Access to this device is
+  granted via file system permissions and does not require `CAP_SYS_PTRACE` to handle kernel
+  triggered page faults.
+
+  We now default to using `/dev/userfaultfd` for creating the descriptors and only if that file is
+  not present, we fall back to using the syscall.
 
 ### 0.3.1 (2021-02-17)
 
