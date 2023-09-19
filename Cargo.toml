@@ -1,6 +1,6 @@
 [package]
 name = "userfaultfd"
-version = "0.6.1"
+version = "0.7.0"
 authors = ["The Wasmtime Project Developers"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -14,7 +14,7 @@ cfg-if = "^1.0.0"
 libc = "0.2.65"
 nix = { version = "0.27", features = ["ioctl"] }
 thiserror = "1.0.4"
-userfaultfd-sys = { path = "userfaultfd-sys", version = "^0.4.0" }
+userfaultfd-sys = { path = "userfaultfd-sys", version = "^0.5.0" }
 
 [dev-dependencies]
 nix = { version = "0.27", features = ["poll", "mman", "feature"] }
