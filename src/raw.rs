@@ -23,3 +23,18 @@ nix::ioctl_readwrite!(
     _UFFDIO_WRITEPROTECT,
     uffdio_writeprotect
 );
+
+// ioctls for /dev/userfaultfd
+
+// This is the `/dev/userfaultfd` ioctl() from creating a new userfault file descriptor.
+// It is a "bad" ioctl in the sense that it is defined as an _IOC:
+// https://elixir.bootlin.com/linux/latest/source/include/uapi/linux/userfaultfd.h#L17,
+// aka `nix::ioctl_none`, however it does receive an integer argument:
+// https://elixir.bootlin.com/linux/latest/source/fs/userfaultfd.c#L2186. That is the same argument
+// that the userfaultfd() system call receives.
+nix::ioctl_write_int_bad!(
+    /// Create a new userfault file descriptor from the `/dev/userfaultfd`
+    /// device. This receives the same arguments as the userfaultfd system call.
+    new_uffd,
+    nix::request_code_none!(USERFAULTFD_IOC, 0x00)
+);

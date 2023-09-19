@@ -1,3 +1,5 @@
+use std::io;
+
 use crate::IoctlFlags;
 use nix::errno::Errno;
 use thiserror::Error;
@@ -47,6 +49,10 @@ pub enum Error {
     /// Zeropage ioctl failure with `errno` value.
     #[error("Zeropage failed: {0}")]
     ZeropageFailed(Errno),
+
+    /// Could not open /dev/userfaultfd even though it exists
+    #[error("Error accessing /dev/userfaultfd: {0}")]
+    OpenDevUserfaultfd(io::Error),
 }
 
 impl From<nix::Error> for Error {
