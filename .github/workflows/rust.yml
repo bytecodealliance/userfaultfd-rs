@@ -9,23 +9,49 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    # ubuntu-latest runs a recent kernel with /dev/userfaultfd support whereas
+    # ubuntu-20.04 has a 5.15 kernel. We run the job in both, so we can test
+    # both paths for creating the file descriptor, i.e. /dev/userfaultfd ioctl
+    # and userfaultfd syscall.
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        runner: [ ubuntu-latest, ubuntu-20.04 ]
 
     steps:
     - uses: actions/checkout@v2
+
+    # Keep this step, so that we can check that the Linux kernel is the one we
+    # expect, depending on the runner kernel.
+    - name: Check Linux version
+      run: uname -r
+
+    # /dev/userfaultfd is only present on ubuntu-latest.
+    - name: Setup access to /dev/userfaultfd
+      if: ${{ matrix.runner == 'ubuntu-latest' }}
+      run: sudo setfacl -m u:${USER}:rw /dev/userfaultfd
+
     - name: Build
       run: cargo build --verbose
-
-    # The github ubuntu-latest is now on linux 5.11 kernel,
-    # so we can test the crate with support for each of the
-    # kernel featuresets:
 
     - name: Run tests (Linux 4.11 support)
       run: cargo test --verbose
     - name: Run tests (Linux 4.14 support)
       run: cargo test --verbose --features linux4_14
+
     - name: Run tests (Linux 5.7 support)
+      if: ${{ matrix.runner == 'ubuntu-latest' }}
       run: cargo test --verbose --features linux5_7
+
+    # On ubuntu-20.04 runner we need to make sure we have the proper kernel
+    # headers for building the correct bindings
+    - name: Run tests (Linux 5.7 support)
+      if: ${{ matrix.runner == 'ubuntu-20.04' }}
+      run:
+        sudo apt update &&
+        sudo apt install -y linux-headers-5.11.0-25-generic &&
+        export LINUX_HEADERS=/usr/src/linux-headers-5.11.0-25-generic &&
+        cargo test --verbose --features linux5_7
 
   audit:
 
