@@ -29,8 +29,9 @@ fn fault_handler_thread(uffd: Uffd) {
     loop {
         // See what poll() tells us about the userfaultfd
 
-        let pollfd = PollFd::new(&uffd, PollFlags::POLLIN);
-        let nready = poll(&mut [pollfd], -1).expect("poll");
+        let mut fds = [PollFd::new(&uffd, PollFlags::POLLIN)];
+        let nready = poll(&mut fds, -1).expect("poll");
+        let pollfd = fds[0];
 
         println!("\nfault_handler_thread():");
         let revents = pollfd.revents().unwrap();
