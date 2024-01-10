@@ -187,8 +187,7 @@ impl UffdBuilder {
         unsafe {
             raw::api(uffd.fd, &mut api as *mut raw::uffdio_api)?;
         }
-        let supported =
-            IoctlFlags::from_bits(api.ioctls).ok_or(Error::UnrecognizedIoctls(api.ioctls))?;
+        let supported = IoctlFlags::from_bits_retain(api.ioctls);
         if !supported.contains(self.req_ioctls) {
             Err(Error::UnsupportedIoctls(supported))
         } else {

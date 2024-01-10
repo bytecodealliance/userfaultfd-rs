@@ -118,7 +118,7 @@ impl Uffd {
         unsafe {
             raw::register(self.as_raw_fd(), &mut register as *mut raw::uffdio_register)?;
         }
-        IoctlFlags::from_bits(register.ioctls).ok_or(Error::UnrecognizedIoctls(register.ioctls))
+        Ok(IoctlFlags::from_bits_retain(register.ioctls))
     }
 
     /// Unregister a memory address range from the userfaultfd object.
@@ -377,6 +377,9 @@ bitflags! {
         #[cfg(feature = "linux5_7")]
         const WRITE_PROTECT = 1 << raw::_UFFDIO_WRITEPROTECT;
         const API = 1 << raw::_UFFDIO_API;
+
+        /// Unknown ioctls flags are allowed to be robust to future kernel changes.
+        const _ = !0;
     }
 }
 
