@@ -1,4 +1,9 @@
-### Unreleased
+### 0.8.0 (2024-01-12)
+
+- `IoctlFlags` accepts unknown flags (e.g. due to future kernel changes).
+  `Error::UnrecognizedIoctls` is removed.
+
+### 0.3.1 ~ 0.7.0
 
 - Added `Uffd::read_events` that can read multiple events from the userfaultfd file descriptor.
 - Updated `bitflags` dependency to `2.2.1`.
