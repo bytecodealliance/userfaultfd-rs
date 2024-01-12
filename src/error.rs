@@ -38,10 +38,6 @@ pub enum Error {
     #[error("Unrecognized event in uffd_msg: {0}")]
     UnrecognizedEvent(u8),
 
-    /// An unrecognized ioctl bit was set in the result of API initialization or registration.
-    #[error("Unrecognized ioctl flags: {0}")]
-    UnrecognizedIoctls(u64),
-
     /// Requested ioctls were not available when initializing the API.
     #[error("Requested ioctls unsupported; supported: {0:?}")]
     UnsupportedIoctls(IoctlFlags),
