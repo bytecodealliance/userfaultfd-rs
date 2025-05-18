@@ -13,10 +13,14 @@ build = "build.rs"
 cfg-if = "^1.0.0"
 
 [build-dependencies]
-bindgen = { version = "^0.68.1", default-features = false, features = ["runtime"]  }
+bindgen = { version = "^0.68.1", default-features = false }
 cc = "1.0"
 
 [features]
-default = []
+default = ["runtime"]
+
 linux4_14 = []
 linux5_7 = []
+
+runtime = ["bindgen/runtime"]
+static = ["bindgen/static"]
