@@ -58,6 +58,7 @@ pub struct UffdBuilder {
     close_on_exec: bool,
     non_blocking: bool,
     user_mode_only: bool,
+    syscall_on_perms_error: bool,
     req_features: FeatureFlags,
     req_ioctls: IoctlFlags,
 }
@@ -70,6 +71,7 @@ impl UffdBuilder {
             close_on_exec: false,
             non_blocking: false,
             user_mode_only: true,
+            syscall_on_perms_error: false,
             req_features: FeatureFlags::empty(),
             req_ioctls: IoctlFlags::empty(),
         }
@@ -101,6 +103,13 @@ impl UffdBuilder {
     /// `CAP_SYS_PTRACE` and can handle kernel-mode page faults.
     pub fn user_mode_only(&mut self, user_mode_only: bool) -> &mut Self {
         self.user_mode_only = user_mode_only;
+        self
+    }
+
+    /// Fall back to using the `userfaultfd` system call if opening `/dev/userfaultfd` fails with
+    /// a permissions error.
+    pub fn syscall_on_perms_error(&mut self, syscall_on_perms_error: bool) -> &mut Self {
+        self.syscall_on_perms_error = syscall_on_perms_error;
         self
     }
 
@@ -147,17 +156,23 @@ impl UffdBuilder {
     // fall back to calling the system call.
     fn open_file_descriptor(&self, flags: i32) -> Result<Uffd> {
         // If `/dev/userfaultfd` exists we'll try to get the file descriptor from it. If the file
-        // doesn't exist we will fall back to calling the system call. This means, that if the
-        // device exists but the calling process does not have access rights to it, this will fail,
-        // i.e. we will not fall back to calling the system call.
+        // doesn't exist we will fall back to calling the system call.
+        // If the file exists but calling process does not have access rights to it, we have the
+        // option to fall back to calling the system call instead. This is only done when the
+        // `syscall_on_perms_error` setting is true. Otherwise, this will just fail.
         match OpenOptions::new()
             .read(true)
             .write(true)
             .open(UFFD_DEVICE_PATH)
         {
             Ok(mut file) => self.uffd_from_dev(&mut file, flags),
-            Err(err) if err.kind() == ErrorKind::NotFound => self.uffd_from_syscall(flags),
-            Err(err) => Err(Error::OpenDevUserfaultfd(err)),
+            Err(err) => match err.kind() {
+                ErrorKind::NotFound => self.uffd_from_syscall(flags),
+                ErrorKind::PermissionDenied if self.syscall_on_perms_error => {
+                    self.uffd_from_syscall(flags)
+                }
+                _ => Err(Error::OpenDevUserfaultfd(err)),
+            },
         }
     }
 

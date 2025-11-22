@@ -1,3 +1,8 @@
+### Unreleased
+
+- Add option to fall back to `userfaultfd` syscall when opening `/dev/userfaultfd` fails due to
+  missing access rights
+
 ### 0.9.0
 
 - Add support for `UFFDIO_CONTINUE` and `UFFDIO_REGISTER_MODE_MINOR` under the new `linux5_13` feature.
