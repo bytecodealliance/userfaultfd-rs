@@ -71,7 +71,7 @@ pub enum Event {
         /// The end address of the memory range that was freed.
         end: *mut c_void,
     },
-    /// Generated when the faulting process unmaps a meomry range, either explicitly using
+    /// Generated when the faulting process unmaps a memory range, either explicitly using
     /// `munmap(2)` or implicitly during `mmap(2)` or `mremap(2)`.
     Unmap {
         /// The start address of the memory range that was unmapped.
