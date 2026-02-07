@@ -10,7 +10,24 @@ use std::os::fd::AsRawFd;
 const UFFD_DEVICE_PATH: &str = "/dev/userfaultfd";
 
 cfg_if::cfg_if! {
-    if #[cfg(any(feature = "linux5_7", feature = "linux4_14"))] {
+    if #[cfg(feature = "linux6_4")] {
+        bitflags! {
+            /// Used with `UffdBuilder` to determine which features are available in the current kernel.
+            #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+            pub struct FeatureFlags: u64 {
+                const PAGEFAULT_FLAG_WP = raw::UFFD_FEATURE_PAGEFAULT_FLAG_WP;
+                const EVENT_FORK = raw::UFFD_FEATURE_EVENT_FORK;
+                const EVENT_REMAP = raw::UFFD_FEATURE_EVENT_REMAP;
+                const EVENT_REMOVE = raw::UFFD_FEATURE_EVENT_REMOVE;
+                const MISSING_HUGETLBFS = raw::UFFD_FEATURE_MISSING_HUGETLBFS;
+                const MISSING_SHMEM = raw::UFFD_FEATURE_MISSING_SHMEM;
+                const EVENT_UNMAP = raw::UFFD_FEATURE_EVENT_UNMAP;
+                const SIGBUS = raw::UFFD_FEATURE_SIGBUS;
+                const THREAD_ID = raw::UFFD_FEATURE_THREAD_ID;
+                const WP_UNPOPULATED = raw::UFFD_FEATURE_WP_UNPOPULATED;
+            }
+        }
+    } else if #[cfg(any(feature = "linux5_7", feature = "linux4_14"))] {
         bitflags! {
             /// Used with `UffdBuilder` to determine which features are available in the current kernel.
             #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
