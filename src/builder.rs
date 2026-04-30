@@ -6,6 +6,7 @@ use nix::errno::Errno;
 use std::fs::{File, OpenOptions};
 use std::io::ErrorKind;
 use std::os::fd::AsRawFd;
+use std::path::Path;
 
 const UFFD_DEVICE_PATH: &str = "/dev/userfaultfd";
 
@@ -145,18 +146,22 @@ impl UffdBuilder {
 
     // Try to get a UFFD file descriptor using `/dev/userfaultfd`. If that fails
     // fall back to calling the system call.
-    fn open_file_descriptor(&self, flags: i32) -> Result<Uffd> {
-        // If `/dev/userfaultfd` exists we'll try to get the file descriptor from it. If the file
-        // doesn't exist we will fall back to calling the system call. This means, that if the
-        // device exists but the calling process does not have access rights to it, this will fail,
-        // i.e. we will not fall back to calling the system call.
-        match OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(UFFD_DEVICE_PATH)
-        {
+    fn open_file_descriptor(&self, path: &Path, flags: i32) -> Result<Uffd> {
+        // If `/dev/userfaultfd` exists and is openable we use it. If it doesn't exist, or
+        // exists but the calling process lacks permission to open it, fall back to the
+        // userfaultfd(2) syscall — the kernel accepts both paths, and a process may have
+        // permission for the syscall (e.g. CAP_SYS_PTRACE) without permission for the
+        // device node.
+        match OpenOptions::new().read(true).write(true).open(path) {
             Ok(mut file) => self.uffd_from_dev(&mut file, flags),
-            Err(err) if err.kind() == ErrorKind::NotFound => self.uffd_from_syscall(flags),
+            Err(err)
+                if matches!(
+                    err.kind(),
+                    ErrorKind::NotFound | ErrorKind::PermissionDenied
+                ) =>
+            {
+                self.uffd_from_syscall(flags)
+            }
             Err(err) => Err(Error::OpenDevUserfaultfd(err)),
         }
     }
@@ -176,7 +181,7 @@ impl UffdBuilder {
             flags |= raw::UFFD_USER_MODE_ONLY as i32;
         }
 
-        let uffd = self.open_file_descriptor(flags)?;
+        let uffd = self.open_file_descriptor(Path::new(UFFD_DEVICE_PATH), flags)?;
 
         // then do the UFFDIO_API ioctl to set up and ensure features and other ioctls are available
         let mut api = raw::uffdio_api {
@@ -193,5 +198,55 @@ impl UffdBuilder {
         } else {
             Ok(uffd)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    // Reproduces the scenario where `/dev/userfaultfd` exists but the calling
+    // process can't open it. The kernel still accepts userfaultfd(2), so the
+    // builder should fall back to the syscall instead of returning
+    // `Error::OpenDevUserfaultfd`.
+    #[test]
+    fn falls_back_to_syscall_when_device_path_unreadable() {
+        // Root bypasses mode 000, so the EACCES we rely on never fires.
+        if unsafe { libc::geteuid() } == 0 {
+            eprintln!("skipping: running as root would bypass chmod 000");
+            return;
+        }
+
+        let path = std::env::temp_dir().join(format!(
+            "userfaultfd-rs-unreadable-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+        ));
+        std::fs::write(&path, b"").expect("create stand-in device file");
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o000))
+            .expect("chmod 000");
+
+        let mut flags = libc::O_CLOEXEC | libc::O_NONBLOCK;
+        flags |= raw::UFFD_USER_MODE_ONLY as i32;
+
+        let result = UffdBuilder::new()
+            .close_on_exec(true)
+            .non_blocking(true)
+            .user_mode_only(true)
+            .open_file_descriptor(&path, flags);
+
+        // Cleanup before assert so a failed test does not leak a mode-000 file.
+        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+        let _ = std::fs::remove_file(&path);
+
+        assert!(
+            result.is_ok(),
+            "expected fallback to userfaultfd(2) syscall when device path is unreadable, got {:?}",
+            result.err(),
+        );
     }
 }
