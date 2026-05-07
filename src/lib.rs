@@ -169,7 +169,7 @@ impl Uffd {
             })?;
         if copy.copy < 0 {
             // shouldn't ever get here, as errno should be caught above
-            Err(Error::CopyFailed(Errno::from_i32(-copy.copy as i32)))
+            Err(Error::CopyFailed(Errno::from_raw(-copy.copy as i32)))
         } else {
             Ok(copy.copy as usize)
         }
@@ -198,7 +198,7 @@ impl Uffd {
             .map_err(Error::ZeropageFailed)?;
         if zeropage.zeropage < 0 {
             // shouldn't ever get here, as errno should be caught above
-            Err(Error::ZeropageFailed(Errno::from_i32(
+            Err(Error::ZeropageFailed(Errno::from_raw(
                 -zeropage.zeropage as i32,
             )))
         } else {
@@ -379,7 +379,7 @@ impl Uffd {
             std::slice::from_raw_parts_mut(msgs.as_mut_ptr() as _, msgs.len() * MSG_SIZE)
         };
 
-        let count = match read(self.as_raw_fd(), buf) {
+        let count = match read(self, buf) {
             Err(e) if e == Errno::EAGAIN => 0,
             Err(e) => return Err(Error::SystemError(e)),
             Ok(0) => return Err(Error::ReadEof),
