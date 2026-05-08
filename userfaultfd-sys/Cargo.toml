@@ -13,7 +13,7 @@ build = "build.rs"
 cfg-if = "^1.0.0"
 
 [build-dependencies]
-bindgen = { version = "^0.69.2", default-features = false, features = ["runtime"]  }
+bindgen = { version = "^0.72.1", default-features = false, features = ["runtime"]  }
 cc = "1.0"
 
 [features]
