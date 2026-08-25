@@ -163,7 +163,7 @@ impl Uffd {
         let _ =
             raw::copy(self.as_raw_fd(), &mut copy as *mut raw::uffdio_copy).map_err(|errno| {
                 match errno {
-                    Errno::EAGAIN => Error::PartiallyCopied(copy.copy as usize),
+                    Errno::EAGAIN if copy.copy > 0 => Error::PartiallyCopied(copy.copy as usize),
                     _ => Error::CopyFailed(errno),
                 }
             })?;
