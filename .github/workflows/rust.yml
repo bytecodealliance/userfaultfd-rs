@@ -37,6 +37,12 @@ jobs:
     - name: Run tests (Linux 5.7 support)
       run: cargo test --verbose --features linux5_7
 
+    # The linux6_7 feature implies every lower level, so this single run covers them all. It
+    # needs kernel headers and a kernel of at least 6.7, which only ubuntu-latest provides.
+    - name: Run tests (Linux 6.7 support)
+      if: ${{ matrix.runner == 'ubuntu-latest' }}
+      run: cargo test --verbose --features linux6_7
+
   audit:
 
     runs-on: ubuntu-latest
