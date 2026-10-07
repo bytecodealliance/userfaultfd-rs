@@ -893,4 +893,96 @@ mod test {
 
         Ok(())
     }
+
+    #[cfg(feature = "linux6_4")]
+    #[test]
+    fn test_write_protect_unpopulated() -> Result<()> {
+        const PAGE_SIZE: usize = 4096;
+
+        unsafe {
+            let uffd = UffdBuilder::new()
+                .require_features(FeatureFlags::PAGEFAULT_FLAG_WP | FeatureFlags::WP_UNPOPULATED)
+                .close_on_exec(true)
+                .create()?;
+
+            let mapping = anon_mapping(PAGE_SIZE);
+
+            // Only register for write-protect faults: without WP_UNPOPULATED, write-protecting
+            // a page that was never touched is a no-op and the write below would simply populate
+            // the page without any fault being reported.
+            assert!(uffd
+                .register_with_mode(mapping, PAGE_SIZE, RegisterMode::WRITE_PROTECT)?
+                .contains(IoctlFlags::WRITE_PROTECT));
+            uffd.write_protect(mapping, PAGE_SIZE)?;
+
+            let ptr = mapping as usize;
+            let thread = thread::spawn(move || {
+                let ptr = ptr as *mut u8;
+                *ptr = 1;
+            });
+
+            match uffd.read_event()? {
+                Some(Event::Pagefault {
+                    kind: FaultKind::WriteProtected,
+                    rw: ReadWrite::Write,
+                    addr,
+                    ..
+                }) => {
+                    assert_eq!(addr, mapping);
+                    uffd.remove_write_protection(mapping, PAGE_SIZE, true)?;
+                }
+                _ => panic!("unexpected event"),
+            }
+
+            thread.join().expect("failed to join thread");
+
+            assert_eq!(*(mapping as *const u8), 1);
+
+            uffd.unregister(mapping, PAGE_SIZE)?;
+
+            assert_eq!(libc::munmap(mapping, PAGE_SIZE), 0);
+        }
+
+        Ok(())
+    }
+
+    #[cfg(feature = "linux6_7")]
+    #[test]
+    fn test_write_protect_async() -> Result<()> {
+        const PAGE_SIZE: usize = 4096;
+
+        unsafe {
+            let uffd = UffdBuilder::new()
+                .require_features(FeatureFlags::PAGEFAULT_FLAG_WP | FeatureFlags::WP_ASYNC)
+                .close_on_exec(true)
+                .non_blocking(true)
+                .create()?;
+
+            let mapping = anon_mapping(PAGE_SIZE);
+
+            assert!(uffd
+                .register_with_mode(mapping, PAGE_SIZE, RegisterMode::WRITE_PROTECT)?
+                .contains(IoctlFlags::WRITE_PROTECT));
+            uffd.write_protect(mapping, PAGE_SIZE)?;
+
+            // In async mode the kernel resolves the write-protect fault itself by clearing the
+            // protection, so the write succeeds from this very thread with no handler involved
+            // and no event is ever queued.
+            *(mapping as *mut u8) = 1;
+            assert_eq!(*(mapping as *const u8), 1);
+            assert!(uffd.read_event()?.is_none());
+
+            // Protecting the now-populated page again behaves the same way.
+            uffd.write_protect(mapping, PAGE_SIZE)?;
+            *(mapping as *mut u8) = 2;
+            assert_eq!(*(mapping as *const u8), 2);
+            assert!(uffd.read_event()?.is_none());
+
+            uffd.unregister(mapping, PAGE_SIZE)?;
+
+            assert_eq!(libc::munmap(mapping, PAGE_SIZE), 0);
+        }
+
+        Ok(())
+    }
 }
