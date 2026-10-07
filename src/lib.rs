@@ -93,6 +93,19 @@ bitflags! {
     }
 }
 
+bitflags! {
+    /// The mode used when copying pages into a registered range with `Uffd::copy_with_mode`.
+    #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+    pub struct CopyMode: u64 {
+        /// Do not wake up the thread waiting for page fault resolution on the memory range.
+        const DONTWAKE = raw::UFFDIO_COPY_MODE_DONTWAKE;
+        /// Map the copied pages write-protected, so that the next write to them raises a
+        /// write-protect fault. The range must be registered with `RegisterMode::WRITE_PROTECT`.
+        #[cfg(feature = "linux5_7")]
+        const WRITE_PROTECT = raw::UFFDIO_COPY_MODE_WP;
+    }
+}
+
 impl Uffd {
     /// Register a memory address range with the userfaultfd object, and returns the `IoctlFlags`
     /// that are available for the selected range.
@@ -148,15 +161,36 @@ impl Uffd {
         len: usize,
         wake: bool,
     ) -> Result<usize> {
+        let mode = if wake {
+            CopyMode::empty()
+        } else {
+            CopyMode::DONTWAKE
+        };
+        self.copy_with_mode(src, dst, len, mode)
+    }
+
+    /// Atomically copy a continuous memory chunk into the userfaultfd-registered range using the
+    /// given `mode`, and return the number of bytes that were successfully copied.
+    ///
+    /// Unless `CopyMode::DONTWAKE` is set, wake up the thread waiting for page fault resolution on
+    /// the memory range.
+    ///
+    /// # Safety
+    ///
+    /// `src` must be valid for reads of `len` bytes, and `dst` must point to a page-aligned
+    /// range of `len` bytes that is registered with this userfaultfd object.
+    pub unsafe fn copy_with_mode(
+        &self,
+        src: *const c_void,
+        dst: *mut c_void,
+        len: usize,
+        mode: CopyMode,
+    ) -> Result<usize> {
         let mut copy = raw::uffdio_copy {
             src: src as u64,
             dst: dst as u64,
             len: len as u64,
-            mode: if wake {
-                0
-            } else {
-                raw::UFFDIO_COPY_MODE_DONTWAKE
-            },
+            mode: mode.bits(),
             copy: 0,
         };
 
@@ -706,6 +740,155 @@ mod test {
             uffd.unregister(mapping, PAGE_SIZE)?;
 
             assert_eq!(libc::munmap(mapping, PAGE_SIZE), 0);
+        }
+
+        Ok(())
+    }
+
+    /// Allocate an anonymous page-aligned mapping of `size` bytes.
+    unsafe fn anon_mapping(size: usize) -> *mut c_void {
+        let mapping = libc::mmap(
+            ptr::null_mut(),
+            size,
+            libc::PROT_READ | libc::PROT_WRITE,
+            libc::MAP_PRIVATE | libc::MAP_ANON,
+            -1,
+            0,
+        );
+        assert_ne!(mapping, libc::MAP_FAILED);
+        mapping
+    }
+
+    #[test]
+    fn test_copy_with_mode_dontwake() -> Result<()> {
+        const PAGE_SIZE: usize = 4096;
+        const FILL: u8 = 0xAB;
+
+        unsafe {
+            let uffd = UffdBuilder::new().close_on_exec(true).create()?;
+
+            let mapping = anon_mapping(PAGE_SIZE);
+            let src = anon_mapping(PAGE_SIZE);
+            ptr::write_bytes(src as *mut u8, FILL, PAGE_SIZE);
+
+            uffd.register(mapping, PAGE_SIZE)?;
+
+            let ptr = mapping as usize;
+            let thread = thread::spawn(move || {
+                let ptr = ptr as *mut u8;
+                *ptr = 1;
+            });
+
+            match uffd.read_event()? {
+                Some(Event::Pagefault {
+                    kind: FaultKind::Missing,
+                    rw: ReadWrite::Write,
+                    addr,
+                    ..
+                }) => {
+                    assert_eq!(addr, mapping);
+                    let copied = uffd.copy_with_mode(src, addr, PAGE_SIZE, CopyMode::DONTWAKE)?;
+                    assert_eq!(copied, PAGE_SIZE);
+
+                    // The page is populated with the source contents, but the faulting thread has
+                    // not been woken yet, so it has not had a chance to perform its write.
+                    assert_eq!(*(addr as *const u8), FILL);
+                    assert_eq!(*(addr as *const u8).add(PAGE_SIZE - 1), FILL);
+
+                    uffd.wake(addr, PAGE_SIZE)?;
+                }
+                _ => panic!("unexpected event"),
+            }
+
+            thread.join().expect("failed to join thread");
+
+            assert_eq!(*(mapping as *const u8), 1);
+            assert_eq!(*(mapping as *const u8).add(1), FILL);
+
+            uffd.unregister(mapping, PAGE_SIZE)?;
+
+            assert_eq!(libc::munmap(mapping, PAGE_SIZE), 0);
+            assert_eq!(libc::munmap(src, PAGE_SIZE), 0);
+        }
+
+        Ok(())
+    }
+
+    #[cfg(feature = "linux5_7")]
+    #[test]
+    fn test_copy_with_mode_write_protect() -> Result<()> {
+        const PAGE_SIZE: usize = 4096;
+        const FILL: u8 = 0xAB;
+
+        unsafe {
+            let uffd = UffdBuilder::new()
+                .require_features(FeatureFlags::PAGEFAULT_FLAG_WP)
+                .close_on_exec(true)
+                .create()?;
+
+            let mapping = anon_mapping(PAGE_SIZE);
+            let src = anon_mapping(PAGE_SIZE);
+            ptr::write_bytes(src as *mut u8, FILL, PAGE_SIZE);
+
+            assert!(uffd
+                .register_with_mode(
+                    mapping,
+                    PAGE_SIZE,
+                    RegisterMode::MISSING | RegisterMode::WRITE_PROTECT
+                )?
+                .contains(IoctlFlags::WRITE_PROTECT));
+
+            let ptr = mapping as usize;
+            let thread = thread::spawn(move || {
+                let ptr = ptr as *mut u8;
+                *ptr = 1;
+            });
+
+            let mut seen_missing = false;
+            loop {
+                match uffd.read_event()? {
+                    Some(Event::Pagefault {
+                        kind,
+                        rw: ReadWrite::Write,
+                        addr,
+                        ..
+                    }) => match kind {
+                        FaultKind::Missing => {
+                            assert_eq!(addr, mapping);
+                            assert!(!seen_missing);
+                            seen_missing = true;
+
+                            // Resolve the missing fault with a write-protected copy. Waking the
+                            // thread makes it retry its write, which must now raise a
+                            // write-protect fault instead of succeeding.
+                            let copied =
+                                uffd.copy_with_mode(src, addr, PAGE_SIZE, CopyMode::WRITE_PROTECT)?;
+                            assert_eq!(copied, PAGE_SIZE);
+                        }
+                        FaultKind::WriteProtected => {
+                            assert_eq!(addr, mapping);
+                            assert!(seen_missing);
+                            // The write has not landed yet; the page holds the copied data.
+                            assert_eq!(*(addr as *const u8), FILL);
+                            uffd.remove_write_protection(mapping, PAGE_SIZE, true)?;
+                            break;
+                        }
+                        #[cfg(feature = "linux5_13")]
+                        FaultKind::Minor => panic!("unexpected minor fault"),
+                    },
+                    _ => panic!("unexpected event"),
+                }
+            }
+
+            thread.join().expect("failed to join thread");
+
+            assert_eq!(*(mapping as *const u8), 1);
+            assert_eq!(*(mapping as *const u8).add(1), FILL);
+
+            uffd.unregister(mapping, PAGE_SIZE)?;
+
+            assert_eq!(libc::munmap(mapping, PAGE_SIZE), 0);
+            assert_eq!(libc::munmap(src, PAGE_SIZE), 0);
         }
 
         Ok(())
