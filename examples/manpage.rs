@@ -1,8 +1,9 @@
 //! Port of the example from the `userfaultfd` manpage.
 use libc::{self, c_void};
-use nix::poll::{poll, PollFd, PollFlags};
-use nix::sys::mman::{mmap, MapFlags, ProtFlags};
+use nix::poll::{poll, PollFd, PollFlags, PollTimeout};
+use nix::sys::mman::{mmap_anonymous, MapFlags, ProtFlags};
 use nix::unistd::{sysconf, SysconfVar};
+use std::os::fd::AsFd;
 use std::{convert::TryInto, env};
 use userfaultfd::{Event, Uffd, UffdBuilder};
 
@@ -12,13 +13,11 @@ fn fault_handler_thread(uffd: Uffd) {
     // Create a page that will be copied into the faulting region
 
     let page = unsafe {
-        mmap(
+        mmap_anonymous(
             None,
             page_size.try_into().unwrap(),
             ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
             MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
-            None::<std::os::fd::BorrowedFd>,
-            0,
         )
         .expect("mmap")
     };
@@ -29,9 +28,9 @@ fn fault_handler_thread(uffd: Uffd) {
     loop {
         // See what poll() tells us about the userfaultfd
 
-        let mut fds = [PollFd::new(&uffd, PollFlags::POLLIN)];
-        let nready = poll(&mut fds, -1).expect("poll");
-        let pollfd = fds[0];
+        let mut fds = [PollFd::new(uffd.as_fd(), PollFlags::POLLIN)];
+        let nready = poll(&mut fds, PollTimeout::NONE).expect("poll");
+        let pollfd = &fds[0];
 
         println!("\nfault_handler_thread():");
         let revents = pollfd.revents().unwrap();
@@ -58,13 +57,16 @@ fn fault_handler_thread(uffd: Uffd) {
             // Copy the page pointed to by 'page' into the faulting region. Vary the contents that are
             // copied in, so that it is more obvious that each fault is handled separately.
 
-            for c in unsafe { std::slice::from_raw_parts_mut(page as *mut u8, page_size) } {
+            for c in unsafe { std::slice::from_raw_parts_mut(page.cast().as_ptr(), page_size) } {
                 *c = b'A' + fault_cnt % 20;
             }
             fault_cnt += 1;
 
             let dst = (addr as usize & !(page_size - 1)) as *mut c_void;
-            let copy = unsafe { uffd.copy(page, dst, page_size, true).expect("uffd copy") };
+            let copy = unsafe {
+                uffd.copy(page.as_ptr(), dst, page_size, true)
+                    .expect("uffd copy")
+            };
 
             println!("        (uffdio_copy.copy returned {})", copy);
         } else {
@@ -96,13 +98,11 @@ fn main() {
     // allocated. When we actually touch the memory, it will be allocated via the userfaultfd.
 
     let addr = unsafe {
-        mmap(
+        mmap_anonymous(
             None,
             len.try_into().unwrap(),
             ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
             MapFlags::MAP_PRIVATE | MapFlags::MAP_ANONYMOUS,
-            None::<std::os::fd::BorrowedFd>,
-            0,
         )
         .expect("mmap")
     };
@@ -113,7 +113,7 @@ fn main() {
     // object. In mode, we request to track missing pages (i.e., pages that have not yet been
     // faulted in).
 
-    uffd.register(addr, len).expect("uffd.register()");
+    uffd.register(addr.as_ptr(), len).expect("uffd.register()");
 
     // Create a thread that will process the userfaultfd events
     let _s = std::thread::spawn(move || fault_handler_thread(uffd));
@@ -126,7 +126,7 @@ fn main() {
     let mut l = 0xf;
 
     while l < len {
-        let ptr = (addr as usize + l) as *mut u8;
+        let ptr = addr.cast::<u8>().as_ptr().wrapping_byte_add(l);
         let c = unsafe { *ptr };
         println!("Read address {:p} in main(): {:?}", ptr, c as char);
         l += 1024;
