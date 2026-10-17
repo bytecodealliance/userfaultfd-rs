@@ -1,3 +1,12 @@
+### Unreleased
+
+- Add support for `UFFD_FEATURE_WP_UNPOPULATED` under the new `linux6_4` feature.
+- Add support for `UFFD_FEATURE_WP_ASYNC` under the new `linux6_7` feature.
+- Add `Uffd::copy_with_mode` and `CopyMode`, exposing `UFFDIO_COPY_MODE_WP` so that copied pages
+  can be mapped write-protected. `Uffd::copy` is unchanged.
+- The `linux6_4` and `linux6_7` features enable every lower feature level, so a single feature
+  selects everything up to that kernel version. Existing feature levels are unchanged.
+
 ### 0.9.0
 
 - Add support for `UFFDIO_CONTINUE` and `UFFDIO_REGISTER_MODE_MINOR` under the new `linux5_13` feature.
