@@ -402,7 +402,7 @@ impl Uffd {
 
 bitflags! {
     /// Used with `UffdBuilder` and `Uffd::register()` to determine which operations are available.
-    #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+    #[derive(Copy, Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct IoctlFlags: u64 {
         const REGISTER = 1 << raw::_UFFDIO_REGISTER;
         const UNREGISTER = 1 << raw::_UFFDIO_UNREGISTER;
