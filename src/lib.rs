@@ -141,6 +141,12 @@ impl Uffd {
     ///
     /// If `wake` is `true`, wake up the thread waiting for page fault resolution on the memory
     /// range.
+    ///
+    /// # Safety
+    ///
+    /// This writes to the memory range `[dst, dst + len)` of the calling process. The caller must
+    /// ensure that it is sound for the contents of that range to change, e.g. that no Rust
+    /// references to it are live.
     pub unsafe fn copy(
         &self,
         src: *const c_void,
@@ -180,6 +186,12 @@ impl Uffd {
     ///
     /// If `wake` is `true`, wake up the thread waiting for page fault resolution on the memory
     /// address range.
+    ///
+    /// # Safety
+    ///
+    /// This writes to the memory range `[start, start + len)` of the calling process. The caller
+    /// must ensure that it is sound for the contents of that range to change, e.g. that no Rust
+    /// references to it are live.
     pub unsafe fn zeropage(&self, start: *mut c_void, len: usize, wake: bool) -> Result<usize> {
         let mut zeropage = raw::uffdio_zeropage {
             range: raw::uffdio_range {
