@@ -212,7 +212,12 @@ impl Uffd {
         };
 
         let _ = raw::zeropage(self.as_raw_fd(), &mut zeropage as &mut raw::uffdio_zeropage)
-            .map_err(|errno| Error::ZeropageFailed(io::Error::from(errno)))?;
+            .map_err(|errno| match errno {
+                Errno::EAGAIN if zeropage.zeropage > 0 => {
+                    Error::PartiallyZeroed(zeropage.zeropage as usize)
+                }
+                _ => Error::ZeropageFailed(io::Error::from(errno)),
+            })?;
         if zeropage.zeropage < 0 {
             // shouldn't ever get here, as errno should be caught above
             Err(Error::ZeropageFailed(io::Error::from_raw_os_error(

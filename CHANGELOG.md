@@ -1,5 +1,7 @@
 ### Unreleased
 
+- Add `Error::PartiallyZeroed`, returned by `Uffd::zeropage` when the ioctl has zeroed only part
+  of the range. The variant carries the number of bytes that were successfully zeroed.
 - `nix` is no longer part of the public API, so future `nix` updates will not be breaking changes.
   - `Error::CopyFailed`, `Error::SystemError` and `Error::ZeropageFailed` now wrap a
     `std::io::Error` instead of a `nix::errno::Errno`. Use `io::Error::raw_os_error()` to get the

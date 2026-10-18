@@ -22,6 +22,10 @@ pub enum Error {
     #[error("Copy partially succeeded")]
     PartiallyCopied(usize),
 
+    /// Zeropage ioctl failure with zeroed length.
+    #[error("Zeropage partially succeeded")]
+    PartiallyZeroed(usize),
+
     /// Failure to read a full `uffd_msg` struct from the underlying file descriptor.
     #[error("Incomplete uffd_msg; read only {read}/{expected} bytes")]
     IncompleteMsg { read: usize, expected: usize },
