@@ -611,7 +611,7 @@ mod test {
                         ..
                     } => {
                         let index = (addr as usize - mapping as usize) / PAGE_SIZE;
-                        assert_eq!(seen[index], false);
+                        assert!(!seen[index]);
                         seen[index] = true;
                         uffd.zeropage(addr, PAGE_SIZE, true)?;
                     }
