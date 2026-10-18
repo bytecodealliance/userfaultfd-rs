@@ -692,6 +692,9 @@ mod test {
                             uffd.write_protect(mapping, PAGE_SIZE)?;
                             uffd.wake(mapping, PAGE_SIZE)?;
                         }
+                        // The mapping is not registered in minor mode.
+                        #[cfg(feature = "linux5_13")]
+                        FaultKind::Minor => panic!("unexpected minor fault"),
                     },
                     _ => panic!("unexpected event"),
                 }
