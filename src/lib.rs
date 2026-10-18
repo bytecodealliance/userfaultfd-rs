@@ -392,7 +392,7 @@ impl Uffd {
         };
 
         let count = match read(self, buf) {
-            Err(e) if e == Errno::EAGAIN => 0,
+            Err(Errno::EAGAIN) => 0,
             Err(e) => return Err(Error::SystemError(e)),
             Ok(0) => return Err(Error::ReadEof),
             Ok(bytes_read) => {
