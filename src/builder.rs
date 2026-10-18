@@ -128,7 +128,7 @@ impl UffdBuilder {
 
     fn uffd_from_dev(&self, file: &mut File, flags: i32) -> Result<Uffd> {
         match unsafe { raw::new_uffd(file.as_raw_fd(), flags) } {
-            Err(err) => Err(err.into()),
+            Err(errno) => Err(Error::sys(errno)),
             Ok(fd) => Ok(Uffd { fd }),
         }
     }
@@ -139,10 +139,11 @@ impl UffdBuilder {
             // setting the USER_MODE_ONLY flag on kernel pre-5.11 causes it to return EINVAL.
             // If the user asks for the flag, we first try with it set, and if kernel gives
             // EINVAL we try again without the flag set.
-            Err(Errno::EINVAL) if self.user_mode_only => Errno::result(unsafe {
-                raw::userfaultfd(flags & !raw::UFFD_USER_MODE_ONLY as i32)
-            })?,
-            Err(e) => return Err(e.into()),
+            Err(Errno::EINVAL) if self.user_mode_only => {
+                Errno::result(unsafe { raw::userfaultfd(flags & !raw::UFFD_USER_MODE_ONLY as i32) })
+                    .map_err(Error::sys)?
+            }
+            Err(errno) => return Err(Error::sys(errno)),
         };
 
         // Wrap the fd up so that a failure in this function body closes it with the drop.
@@ -191,7 +192,7 @@ impl UffdBuilder {
             ioctls: 0,
         };
         unsafe {
-            raw::api(uffd.fd, &mut api as *mut raw::uffdio_api)?;
+            raw::api(uffd.fd, &mut api as *mut raw::uffdio_api).map_err(Error::sys)?;
         }
         let supported = IoctlFlags::from_bits_retain(api.ioctls);
         if !supported.contains(self.req_ioctls) {

@@ -8,7 +8,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 /// Errors for this crate.
 ///
-/// Several of these errors contain an underlying `Errno` value; see
+/// Several of these errors contain an underlying `std::io::Error` value; see
 /// [`userfaultfd(2)`](http://man7.org/linux/man-pages/man2/userfaultfd.2.html) and
 /// [`ioctl_userfaultfd(2)`](http://man7.org/linux/man-pages/man2/ioctl_userfaultfd.2.html) for more
 /// details on how to interpret these errors.
@@ -16,7 +16,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     /// Copy ioctl failure with `errno` value.
     #[error("Copy failed")]
-    CopyFailed(Errno),
+    CopyFailed(#[source] io::Error),
 
     /// Copy ioctl failure with copied length.
     #[error("Copy partially succeeded")]
@@ -28,7 +28,7 @@ pub enum Error {
 
     /// Generic system error.
     #[error("System error")]
-    SystemError(#[source] nix::Error),
+    SystemError(#[source] io::Error),
 
     /// End-of-file was read from the underlying file descriptor.
     #[error("EOF when reading file descriptor")]
@@ -43,16 +43,20 @@ pub enum Error {
     UnsupportedIoctls(IoctlFlags),
 
     /// Zeropage ioctl failure with `errno` value.
-    #[error("Zeropage failed: {0}")]
-    ZeropageFailed(Errno),
+    #[error("Zeropage failed")]
+    ZeropageFailed(#[source] io::Error),
 
     /// Could not open /dev/userfaultfd even though it exists
-    #[error("Error accessing /dev/userfaultfd: {0}")]
-    OpenDevUserfaultfd(io::Error),
+    #[error("Error accessing /dev/userfaultfd")]
+    OpenDevUserfaultfd(#[source] io::Error),
 }
 
-impl From<nix::Error> for Error {
-    fn from(e: nix::Error) -> Error {
-        Error::SystemError(e)
+impl Error {
+    /// Converts an `Errno` returned by a system call into `Error::SystemError`.
+    ///
+    /// This is deliberately not a `From<Errno>` implementation: trait implementations are always
+    /// public, and that would make `nix` part of this crate's public API.
+    pub(crate) fn sys(errno: Errno) -> Self {
+        Error::SystemError(io::Error::from(errno))
     }
 }

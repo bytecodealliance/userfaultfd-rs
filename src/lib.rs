@@ -20,6 +20,7 @@ use bitflags::bitflags;
 use libc::{self, c_void};
 use nix::errno::Errno;
 use nix::unistd::read;
+use std::io;
 use std::mem;
 use std::os::fd::{AsFd, BorrowedFd};
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
@@ -119,7 +120,8 @@ impl Uffd {
             ioctls: 0,
         };
         unsafe {
-            raw::register(self.as_raw_fd(), &mut register as *mut raw::uffdio_register)?;
+            raw::register(self.as_raw_fd(), &mut register as *mut raw::uffdio_register)
+                .map_err(Error::sys)?;
         }
         Ok(IoctlFlags::from_bits_retain(register.ioctls))
     }
@@ -131,7 +133,8 @@ impl Uffd {
             len: len as u64,
         };
         unsafe {
-            raw::unregister(self.as_raw_fd(), &mut range as *mut raw::uffdio_range)?;
+            raw::unregister(self.as_raw_fd(), &mut range as *mut raw::uffdio_range)
+                .map_err(Error::sys)?;
         }
         Ok(())
     }
@@ -170,12 +173,14 @@ impl Uffd {
             raw::copy(self.as_raw_fd(), &mut copy as *mut raw::uffdio_copy).map_err(|errno| {
                 match errno {
                     Errno::EAGAIN if copy.copy > 0 => Error::PartiallyCopied(copy.copy as usize),
-                    _ => Error::CopyFailed(errno),
+                    _ => Error::CopyFailed(io::Error::from(errno)),
                 }
             })?;
         if copy.copy < 0 {
             // shouldn't ever get here, as errno should be caught above
-            Err(Error::CopyFailed(Errno::from_raw(-copy.copy as i32)))
+            Err(Error::CopyFailed(io::Error::from_raw_os_error(
+                -copy.copy as i32,
+            )))
         } else {
             Ok(copy.copy as usize)
         }
@@ -207,10 +212,10 @@ impl Uffd {
         };
 
         let _ = raw::zeropage(self.as_raw_fd(), &mut zeropage as &mut raw::uffdio_zeropage)
-            .map_err(Error::ZeropageFailed)?;
+            .map_err(|errno| Error::ZeropageFailed(io::Error::from(errno)))?;
         if zeropage.zeropage < 0 {
             // shouldn't ever get here, as errno should be caught above
-            Err(Error::ZeropageFailed(Errno::from_raw(
+            Err(Error::ZeropageFailed(io::Error::from_raw_os_error(
                 -zeropage.zeropage as i32,
             )))
         } else {
@@ -225,7 +230,8 @@ impl Uffd {
             len: len as u64,
         };
         unsafe {
-            raw::wake(self.as_raw_fd(), &mut range as *mut raw::uffdio_range)?;
+            raw::wake(self.as_raw_fd(), &mut range as *mut raw::uffdio_range)
+                .map_err(Error::sys)?;
         }
         Ok(())
     }
@@ -245,7 +251,8 @@ impl Uffd {
             raw::write_protect(
                 self.as_raw_fd(),
                 &mut ioctl as *mut raw::uffdio_writeprotect,
-            )?;
+            )
+            .map_err(Error::sys)?;
         }
 
         Ok(())
@@ -278,7 +285,8 @@ impl Uffd {
             raw::write_protect(
                 self.as_raw_fd(),
                 &mut ioctl as *mut raw::uffdio_writeprotect,
-            )?;
+            )
+            .map_err(Error::sys)?;
         }
 
         Ok(())
@@ -311,7 +319,7 @@ impl Uffd {
 
         match r {
             Err(Errno::EAGAIN) if ioctl.mapped > 0 => Ok(ioctl.mapped as u64),
-            Err(err) => Err(err.into()),
+            Err(errno) => Err(Error::sys(errno)),
             Ok(_) => Ok(ioctl.mapped as u64),
         }
     }
@@ -393,7 +401,7 @@ impl Uffd {
 
         let count = match read(self, buf) {
             Err(Errno::EAGAIN) => 0,
-            Err(e) => return Err(Error::SystemError(e)),
+            Err(e) => return Err(Error::sys(e)),
             Ok(0) => return Err(Error::ReadEof),
             Ok(bytes_read) => {
                 let remainder = bytes_read % MSG_SIZE;
