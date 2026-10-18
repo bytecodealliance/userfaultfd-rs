@@ -1,9 +1,9 @@
-use libc::{c_int, c_long, syscall, SYS_userfaultfd, INT_MAX};
+use libc::{c_int, c_long, syscall, SYS_userfaultfd};
 pub use userfaultfd_sys::*;
 
 pub unsafe fn userfaultfd(flags: c_int) -> c_int {
     let fd = syscall(SYS_userfaultfd, flags as c_long);
-    if fd > INT_MAX as c_long {
+    if fd > c_int::MAX as c_long {
         panic!("fd doesn't fit in a c_int");
     } else {
         fd as c_int
