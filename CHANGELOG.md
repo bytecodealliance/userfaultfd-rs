@@ -1,3 +1,14 @@
+### Unreleased
+
+- `nix` is no longer part of the public API, so future `nix` updates will not be breaking changes.
+  - `Error::CopyFailed`, `Error::SystemError` and `Error::ZeropageFailed` now wrap a
+    `std::io::Error` instead of a `nix::errno::Errno`. Use `io::Error::raw_os_error()` to get the
+    raw `errno` value.
+  - The `From<nix::Error>` implementation for `Error` is removed.
+  - `Event::Pagefault::thread_id` is now a `libc::pid_t` instead of a `nix::unistd::Pid`.
+- `Error::ZeropageFailed` and `Error::OpenDevUserfaultfd` expose the underlying `std::io::Error`
+  through `Error::source()` and no longer include it in their `Display` output.
+
 ### 0.9.0
 
 - Add support for `UFFDIO_CONTINUE` and `UFFDIO_REGISTER_MODE_MINOR` under the new `linux5_13` feature.
