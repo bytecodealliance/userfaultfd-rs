@@ -408,7 +408,7 @@ impl Uffd {
             }
         };
 
-        Ok(msgs.iter().take(count).map(|msg| Event::from_uffd_msg(msg)))
+        Ok(msgs.iter().take(count).map(Event::from_uffd_msg))
     }
 }
 
