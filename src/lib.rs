@@ -141,6 +141,12 @@ impl Uffd {
     ///
     /// If `wake` is `true`, wake up the thread waiting for page fault resolution on the memory
     /// range.
+    ///
+    /// # Safety
+    ///
+    /// This writes to the memory range `[dst, dst + len)` of the calling process. The caller must
+    /// ensure that it is sound for the contents of that range to change, e.g. that no Rust
+    /// references to it are live.
     pub unsafe fn copy(
         &self,
         src: *const c_void,
@@ -180,6 +186,12 @@ impl Uffd {
     ///
     /// If `wake` is `true`, wake up the thread waiting for page fault resolution on the memory
     /// address range.
+    ///
+    /// # Safety
+    ///
+    /// This writes to the memory range `[start, start + len)` of the calling process. The caller
+    /// must ensure that it is sound for the contents of that range to change, e.g. that no Rust
+    /// references to it are live.
     pub unsafe fn zeropage(&self, start: *mut c_void, len: usize, wake: bool) -> Result<usize> {
         let mut zeropage = raw::uffdio_zeropage {
             range: raw::uffdio_range {
@@ -380,7 +392,7 @@ impl Uffd {
         };
 
         let count = match read(self, buf) {
-            Err(e) if e == Errno::EAGAIN => 0,
+            Err(Errno::EAGAIN) => 0,
             Err(e) => return Err(Error::SystemError(e)),
             Ok(0) => return Err(Error::ReadEof),
             Ok(bytes_read) => {
@@ -396,13 +408,13 @@ impl Uffd {
             }
         };
 
-        Ok(msgs.iter().take(count).map(|msg| Event::from_uffd_msg(msg)))
+        Ok(msgs.iter().take(count).map(Event::from_uffd_msg))
     }
 }
 
 bitflags! {
     /// Used with `UffdBuilder` and `Uffd::register()` to determine which operations are available.
-    #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+    #[derive(Copy, Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct IoctlFlags: u64 {
         const REGISTER = 1 << raw::_UFFDIO_REGISTER;
         const UNREGISTER = 1 << raw::_UFFDIO_UNREGISTER;
@@ -599,7 +611,7 @@ mod test {
                         ..
                     } => {
                         let index = (addr as usize - mapping as usize) / PAGE_SIZE;
-                        assert_eq!(seen[index], false);
+                        assert!(!seen[index]);
                         seen[index] = true;
                         uffd.zeropage(addr, PAGE_SIZE, true)?;
                     }

@@ -13,7 +13,7 @@ cfg_if::cfg_if! {
     if #[cfg(any(feature = "linux5_7", feature = "linux4_14"))] {
         bitflags! {
             /// Used with `UffdBuilder` to determine which features are available in the current kernel.
-            #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+            #[derive(Copy, Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
             pub struct FeatureFlags: u64 {
                 const PAGEFAULT_FLAG_WP = raw::UFFD_FEATURE_PAGEFAULT_FLAG_WP;
                 const EVENT_FORK = raw::UFFD_FEATURE_EVENT_FORK;
@@ -29,7 +29,7 @@ cfg_if::cfg_if! {
     } else {
         bitflags! {
             /// Used with `UffdBuilder` to determine which features are available in the current kernel.
-            #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+            #[derive(Copy, Clone, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
             pub struct FeatureFlags: u64 {
                 const PAGEFAULT_FLAG_WP = raw::UFFD_FEATURE_PAGEFAULT_FLAG_WP;
                 const EVENT_FORK = raw::UFFD_FEATURE_EVENT_FORK;
@@ -62,10 +62,8 @@ pub struct UffdBuilder {
     req_ioctls: IoctlFlags,
 }
 
-impl UffdBuilder {
-    /// Create a new builder with no required features or ioctls, `close_on_exec` and
-    /// `non_blocking` both set to `false`, and `user_mode_only` set to `true`.
-    pub fn new() -> UffdBuilder {
+impl Default for UffdBuilder {
+    fn default() -> Self {
         UffdBuilder {
             close_on_exec: false,
             non_blocking: false,
@@ -73,6 +71,14 @@ impl UffdBuilder {
             req_features: FeatureFlags::empty(),
             req_ioctls: IoctlFlags::empty(),
         }
+    }
+}
+
+impl UffdBuilder {
+    /// Create a new builder with no required features or ioctls, `close_on_exec` and
+    /// `non_blocking` both set to `false`, and `user_mode_only` set to `true`.
+    pub fn new() -> UffdBuilder {
+        UffdBuilder::default()
     }
 
     /// Enable the close-on-exec flag for the new userfaultfd object (see the description of
@@ -193,5 +199,20 @@ impl UffdBuilder {
         } else {
             Ok(uffd)
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_new_defaults() {
+        let builder = UffdBuilder::new();
+        assert!(!builder.close_on_exec);
+        assert!(!builder.non_blocking);
+        assert!(builder.user_mode_only);
+        assert!(builder.req_features.is_empty());
+        assert!(builder.req_ioctls.is_empty());
     }
 }
