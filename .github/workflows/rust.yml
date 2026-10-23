@@ -33,9 +33,12 @@ jobs:
       run: cargo test --verbose
     - name: Run tests (Linux 4.14 support)
       run: cargo test --verbose --features linux4_14
-
     - name: Run tests (Linux 5.7 support)
       run: cargo test --verbose --features linux5_7
+    - name: Run tests (Linux 5.13 support)
+      run: cargo test --verbose --features linux5_13
+    - name: Run tests (Linux 5.7 and 5.13 support)
+      run: cargo test --verbose --features linux5_7,linux5_13
 
   audit:
 
